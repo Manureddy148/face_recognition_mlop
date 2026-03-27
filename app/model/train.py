@@ -14,6 +14,7 @@ from app.model.vgg_model import train as vgg_train
 
 DATA_DIR = os.getenv("DATA_DIR", "data/students")
 MODELS_DIR = os.getenv("MODELS_DIR", "saved_models")
+PRETRAINED_MODEL_PATH = os.getenv("PRETRAINED_MODEL_PATH", "saved_models/pretrained_lfw.keras")
 
 
 def get_active_class_labels(db: Session) -> list[str]:
@@ -47,6 +48,7 @@ def retrain(db: Session, fine_tune: bool = False) -> dict:
         version=version,
         epochs=int(os.getenv("TRAIN_EPOCHS", "25")),
         fine_tune=fine_tune,
+        pretrained_model_path=PRETRAINED_MODEL_PATH,
     )
 
     # Deactivate all previous versions
@@ -60,7 +62,7 @@ def retrain(db: Session, fine_tune: bool = False) -> dict:
         class_labels=json.dumps(result["class_labels"]),
         model_path=result["model_path"],
         is_active=True,
-        notes=f"fine_tune={fine_tune}",
+        notes=f"fine_tune={fine_tune},used_pretrained={result.get('used_pretrained', False)}",
     )
     db.add(mv)
     db.commit()

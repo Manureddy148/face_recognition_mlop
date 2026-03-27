@@ -70,6 +70,41 @@ def compile_model(model: Model, learning_rate: float = 1e-4) -> Model:
     return model
 
 
+def _warm_start_from_pretrained(model: Model, pretrained_model_path: str) -> bool:
+    """
+    Copy matching layer weights from a pretrained keras model.
+    Layers with incompatible shapes (for example final classifier) are skipped.
+    """
+    if not pretrained_model_path or not os.path.exists(pretrained_model_path):
+        return False
+
+    try:
+        pretrained = tf.keras.models.load_model(pretrained_model_path)
+    except Exception as e:
+        print(f"[TRAIN] Could not load pretrained model: {e}")
+        return False
+
+    loaded = 0
+    src_by_name = {layer.name: layer for layer in pretrained.layers}
+    for layer in model.layers:
+        src = src_by_name.get(layer.name)
+        if not src:
+            continue
+        src_weights = src.get_weights()
+        dst_weights = layer.get_weights()
+        if not src_weights or not dst_weights:
+            continue
+        if len(src_weights) != len(dst_weights):
+            continue
+        if any(sw.shape != dw.shape for sw, dw in zip(src_weights, dst_weights)):
+            continue
+        layer.set_weights(src_weights)
+        loaded += 1
+
+    print(f"[TRAIN] Warm-started {loaded} layers from {pretrained_model_path}")
+    return loaded > 0
+
+
 def get_data_augmentation():
     return tf.keras.Sequential([
         layers.RandomFlip("horizontal"),
@@ -132,6 +167,7 @@ def train(
     version: str,
     epochs: int = 30,
     fine_tune: bool = False,
+    pretrained_model_path: str | None = None,
 ) -> dict:
     """
     Full training pipeline. Returns metrics dict.
@@ -146,6 +182,7 @@ def train(
 
     # Phase 1: frozen base
     model = build_model(num_classes)
+    used_pretrained = _warm_start_from_pretrained(model, pretrained_model_path)
     model = compile_model(model, learning_rate=1e-3)
 
     callbacks = [
@@ -179,5 +216,6 @@ def train(
         "model_path": model_path,
         "labels_path": labels_path,
         "class_labels": class_labels,
+        "used_pretrained": used_pretrained,
     }
 
