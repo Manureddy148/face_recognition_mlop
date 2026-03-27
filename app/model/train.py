@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.database.models import Student, ModelVersion
 from app.model.vgg_model import train as vgg_train
 
-DATA_DIR   = os.getenv("DATA_DIR",   "data/students")
+DATA_DIR = os.getenv("DATA_DIR", "data/students")
 MODELS_DIR = os.getenv("MODELS_DIR", "saved_models")
 
 
@@ -76,10 +76,11 @@ def get_active_model_info(db: Session) -> dict | None:
     if not mv:
         return None
     return {
-        "version":      mv.version,
-        "accuracy":     mv.accuracy,
-        "num_classes":  mv.num_classes,
+        "version": mv.version,
+        "accuracy": mv.accuracy,
+        "num_classes": mv.num_classes,
         "class_labels": json.loads(mv.class_labels),
-        "model_path":   mv.model_path,
-        "trained_at":   mv.trained_at.isoformat(),
+        "model_path": mv.model_path,
+        "trained_at": mv.trained_at.isoformat(),
     }
+

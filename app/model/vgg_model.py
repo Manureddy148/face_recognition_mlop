@@ -12,7 +12,6 @@ Supports incremental retraining when students are added/removed.
 """
 import os
 import json
-import numpy as np
 import tensorflow as tf
 from tensorflow.keras.applications import VGG16
 from tensorflow.keras import layers, Model, optimizers
@@ -20,13 +19,9 @@ from tensorflow.keras.callbacks import (
     EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 )
 
-IMG_SIZE   = (224, 224)
+IMG_SIZE = (224, 224)
 BATCH_SIZE = 16
 
-
-# ──────────────────────────────────────────────
-# Build / Rebuild Model
-# ──────────────────────────────────────────────
 
 def build_model(num_classes: int, fine_tune_from: int = None) -> Model:
     """
@@ -75,10 +70,6 @@ def compile_model(model: Model, learning_rate: float = 1e-4) -> Model:
     return model
 
 
-# ──────────────────────────────────────────────
-# Data Augmentation Pipeline
-# ──────────────────────────────────────────────
-
 def get_data_augmentation():
     return tf.keras.Sequential([
         layers.RandomFlip("horizontal"),
@@ -89,14 +80,10 @@ def get_data_augmentation():
     ], name="augmentation")
 
 
-# ──────────────────────────────────────────────
-# Dataset Loader
-# ──────────────────────────────────────────────
-
 def load_dataset(data_dir: str, class_labels: list[str], validation_split: float = 0.2):
     """
     Load face images from  data_dir/{reg_no}/*.jpg  structure.
-    Returns (train_ds, val_ds, class_indices).
+    Returns (train_ds, val_ds).
     """
     train_ds = tf.keras.utils.image_dataset_from_directory(
         data_dir,
@@ -122,25 +109,21 @@ def load_dataset(data_dir: str, class_labels: list[str], validation_split: float
     )
 
     augment = get_data_augmentation()
-    AUTOTUNE = tf.data.AUTOTUNE
+    autotune = tf.data.AUTOTUNE
 
     # Normalise to [0,1] and augment training set
     train_ds = (
         train_ds
-        .map(lambda x, y: (augment(x, training=True) / 255.0, y), num_parallel_calls=AUTOTUNE)
-        .prefetch(AUTOTUNE)
+        .map(lambda x, y: (augment(x, training=True) / 255.0, y), num_parallel_calls=autotune)
+        .prefetch(autotune)
     )
     val_ds = (
         val_ds
-        .map(lambda x, y: (x / 255.0, y), num_parallel_calls=AUTOTUNE)
-        .prefetch(AUTOTUNE)
+        .map(lambda x, y: (x / 255.0, y), num_parallel_calls=autotune)
+        .prefetch(autotune)
     )
     return train_ds, val_ds
 
-
-# ──────────────────────────────────────────────
-# Training Entry Point
-# ──────────────────────────────────────────────
 
 def train(
     data_dir: str,
@@ -151,17 +134,17 @@ def train(
     fine_tune: bool = False,
 ) -> dict:
     """
-    Full training pipeline.  Returns metrics dict.
+    Full training pipeline. Returns metrics dict.
     """
     os.makedirs(save_dir, exist_ok=True)
     num_classes = len(class_labels)
 
-    model_path  = os.path.join(save_dir, f"model_v{version}.keras")
+    model_path = os.path.join(save_dir, f"model_v{version}.keras")
     labels_path = os.path.join(save_dir, f"labels_v{version}.json")
 
     train_ds, val_ds = load_dataset(data_dir, class_labels)
 
-    # ── Phase 1: frozen base ──────────────────
+    # Phase 1: frozen base
     model = build_model(num_classes)
     model = compile_model(model, learning_rate=1e-3)
 
@@ -172,9 +155,9 @@ def train(
     ]
 
     print(f"[TRAIN] Phase 1 – Frozen base, {num_classes} classes, {epochs} epochs")
-    hist1 = model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=callbacks)
+    model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=callbacks)
 
-    # ── Phase 2 (optional fine-tune) ─────────
+    # Phase 2 (optional fine-tune)
     if fine_tune and num_classes >= 5:
         print("[TRAIN] Phase 2 – Fine-tuning last 4 VGG blocks")
         model = build_model(num_classes, fine_tune_from=-8)
@@ -182,11 +165,9 @@ def train(
         model = compile_model(model, learning_rate=1e-5)
         model.fit(train_ds, validation_data=val_ds, epochs=10, callbacks=callbacks)
 
-    # Save label mapping
     with open(labels_path, "w") as f:
         json.dump(class_labels, f)
 
-    # Evaluate
     loss, acc = model.evaluate(val_ds, verbose=0)
     print(f"[TRAIN] Final val_accuracy={acc:.4f}  val_loss={loss:.4f}")
 
@@ -199,3 +180,4 @@ def train(
         "labels_path": labels_path,
         "class_labels": class_labels,
     }
+
