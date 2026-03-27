@@ -3,16 +3,16 @@ import os
 
 import numpy as np
 import tensorflow as tf
-from sklearn.datasets import fetch_lfw_people
 from sklearn.model_selection import train_test_split
 from tensorflow.keras import Model, layers, optimizers
 from tensorflow.keras.applications import VGG16
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
+from lfw_cache import load_lfw_people_cached
 
 def main():
     print("Loading LFW dataset...")
-    lfw = fetch_lfw_people(min_faces_per_person=20, resize=1.0)
+    lfw = load_lfw_people_cached(min_faces_per_person=20, resize=1.0)
 
     images = lfw.images
     labels = lfw.target
@@ -40,7 +40,9 @@ def main():
     )
     print(f"Train: {len(x_train)}  Test: {len(x_test)}")
 
-    base = VGG16(weights="imagenet", include_top=False, input_shape=(224, 224, 3))
+    use_synth = os.getenv("USE_SYNTHETIC_FACE_DATA", "").lower() in {"1", "true", "yes"}
+    base_weights = None if use_synth else "imagenet"
+    base = VGG16(weights=base_weights, include_top=False, input_shape=(224, 224, 3))
     base.trainable = False
 
     x = layers.GlobalAveragePooling2D()(base.output)
@@ -70,11 +72,12 @@ def main():
     ]
 
     print("\nPhase 1: Training top layers (frozen base)...")
+    pretrain_epochs = int(os.getenv("PRETRAIN_EPOCHS", "30"))
     model.fit(
         x_train,
         y_train,
         validation_data=(x_test, y_test),
-        epochs=30,
+        epochs=pretrain_epochs,
         batch_size=16,
         callbacks=callbacks,
     )
