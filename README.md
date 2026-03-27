@@ -42,6 +42,8 @@ source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+For a full beginner-to-advanced workflow (LFW pretraining + evaluation + student fine-tuning), see `STEP_BY_STEP_GUIDE.md`.
+
 ### 2. Run the API
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -183,3 +185,4 @@ Input (224×224×3 RGB)
 - ✅ Use `fine_tune=true` for best accuracy (needs ≥5 students)
 - ✅ Retrain after every add/remove of students
 - ✅ Set `CONFIDENCE_THRESHOLD=0.80` for stricter matching
+- ✅ Optional warm-start: place `saved_models/pretrained_lfw.keras` and retrain
