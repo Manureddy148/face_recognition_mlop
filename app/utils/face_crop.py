@@ -39,7 +39,7 @@ def save_student_face_samples(
     saved = 0
 
     for idx, img_bytes in enumerate(image_bytes_list):
-        nparr   = np.frombuffer(img_bytes, np.uint8)
+        nparr = np.frombuffer(img_bytes, np.uint8)
         img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img_bgr is None:
             continue
@@ -98,3 +98,4 @@ def count_student_samples(reg_no: str) -> int:
     if not os.path.exists(student_dir):
         return 0
     return len([f for f in os.listdir(student_dir) if f.endswith(".jpg")])
+

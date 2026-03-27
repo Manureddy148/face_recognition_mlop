@@ -8,7 +8,6 @@ Student management endpoints:
   DELETE /students/{reg_no}/hard     – permanently remove student + images
   GET    /students/{reg_no}/samples  – count training images
 """
-import os
 import json
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import JSONResponse
@@ -31,26 +30,22 @@ class StudentInfo(BaseModel):
     email: Optional[str] = ""
 
 
-# ── Register single student ────────────────────────────────────────────────────
-
 @router.post("/register")
 async def register_student(
-    reg_no:     str = Form(...),
-    name:       str = Form(...),
+    reg_no: str = Form(...),
+    name: str = Form(...),
     department: str = Form(""),
-    email:      str = Form(""),
-    images:     list[UploadFile] = File(...),
+    email: str = Form(""),
+    images: list[UploadFile] = File(...),
     auto_train: bool = Form(False),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
 ):
     """Register a student with face images. Pass auto_train=true to retrain immediately."""
-    # Check duplicate
     existing = db.query(Student).filter(Student.reg_no == reg_no).first()
     if existing and existing.is_active:
         raise HTTPException(400, f"Student {reg_no} already registered.")
 
-    # Process images
     image_bytes_list = [await img.read() for img in images]
     saved = save_student_face_samples(reg_no, image_bytes_list)
 
@@ -58,14 +53,12 @@ async def register_student(
         raise HTTPException(400, f"Only {saved} valid face images found. Upload at least 5 clear photos.")
 
     if existing:
-        # Reactivate
-        existing.name         = name
-        existing.department   = department
-        existing.email        = email
-        existing.is_active    = True
+        existing.name = name
+        existing.department = department
+        existing.email = email
+        existing.is_active = True
         existing.sample_count = saved
         db.commit()
-        student = existing
     else:
         student = Student(
             reg_no=reg_no, name=name, department=department,
@@ -77,11 +70,11 @@ async def register_student(
         db.refresh(student)
 
     result = {
-        "message":      "Student registered successfully.",
-        "reg_no":       reg_no,
-        "name":         name,
+        "message": "Student registered successfully.",
+        "reg_no": reg_no,
+        "name": name,
         "samples_saved": saved,
-        "auto_train":   auto_train,
+        "auto_train": auto_train,
     }
 
     if auto_train:
@@ -91,22 +84,14 @@ async def register_student(
     return JSONResponse(result)
 
 
-# ── Bulk register ──────────────────────────────────────────────────────────────
-
 @router.post("/register-bulk")
 async def register_bulk(
-    students_json: str = Form(...),   # JSON array of {reg_no, name, department, email}
-    images:        list[UploadFile] = File(...),
-    auto_train:    bool = Form(False),
+    students_json: str = Form(...),
+    images: list[UploadFile] = File(...),
+    auto_train: bool = Form(False),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
 ):
-    """
-    Register multiple students at once.
-    students_json: '[{"reg_no":"S001","name":"Alice",...}, ...]'
-    images: upload files named like  S001_0.jpg, S001_1.jpg, S002_0.jpg ...
-            OR just sequentially — matched to students in order.
-    """
     try:
         students_data = json.loads(students_json)
     except Exception:
@@ -114,7 +99,6 @@ async def register_bulk(
 
     results = []
 
-    # Group images by filename prefix (reg_no)
     image_map: dict[str, list[bytes]] = {}
     for img in images:
         prefix = img.filename.split("_")[0] if "_" in img.filename else "shared"
@@ -122,7 +106,7 @@ async def register_bulk(
 
     for sdata in students_data:
         reg_no = sdata.get("reg_no", "")
-        name   = sdata.get("name", "")
+        name = sdata.get("name", "")
         if not reg_no or not name:
             results.append({"reg_no": reg_no, "status": "error", "reason": "Missing reg_no or name"})
             continue
@@ -135,14 +119,18 @@ async def register_bulk(
         saved = save_student_face_samples(reg_no, imgs)
         existing = db.query(Student).filter(Student.reg_no == reg_no).first()
         if existing:
-            existing.name=name; existing.is_active=True; existing.sample_count=saved
+            existing.name = name
+            existing.is_active = True
+            existing.sample_count = saved
             db.commit()
         else:
-            db.add(Student(reg_no=reg_no, name=name,
-                           department=sdata.get("department",""),
-                           email=sdata.get("email",""),
-                           image_dir=f"data/students/{reg_no}",
-                           sample_count=saved))
+            db.add(Student(
+                reg_no=reg_no, name=name,
+                department=sdata.get("department", ""),
+                email=sdata.get("email", ""),
+                image_dir=f"data/students/{reg_no}",
+                sample_count=saved
+            ))
             db.commit()
 
         results.append({"reg_no": reg_no, "name": name, "status": "ok", "samples": saved})
@@ -152,8 +140,6 @@ async def register_bulk(
 
     return {"registered": results, "auto_train": auto_train}
 
-
-# ── List / Get / Delete ────────────────────────────────────────────────────────
 
 @router.get("/")
 def list_students(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -183,7 +169,6 @@ def deactivate_student(
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
 ):
-    """Soft-delete: keep images but exclude from future training."""
     s = db.query(Student).filter(Student.reg_no == reg_no).first()
     if not s:
         raise HTTPException(404, "Student not found.")
@@ -201,7 +186,6 @@ def hard_delete_student(
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
 ):
-    """Permanently remove student record and all training images."""
     s = db.query(Student).filter(Student.reg_no == reg_no).first()
     if not s:
         raise HTTPException(404, "Student not found.")
@@ -219,10 +203,9 @@ def sample_count(reg_no: str):
     return {"reg_no": reg_no, "sample_count": count}
 
 
-# ── Background task ────────────────────────────────────────────────────────────
-
 def _bg_retrain(db: Session):
     try:
         retrain(db)
     except Exception as e:
         print(f"[BG RETRAIN ERROR] {e}")
+

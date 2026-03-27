@@ -28,3 +28,4 @@ def init_db():
     from app.database.models import Student, DetectionLog  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("[DB] Tables created/verified.")
+
