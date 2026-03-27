@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: face_recognition_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./face_recognition.db
+      - DATA_DIR=/app/data/students
+      - MODELS_DIR=/app/saved_models
+      - SNAPSHOT_DIR=/app/data/snapshots
+      - CONFIDENCE_THRESHOLD=0.75
+      - TRAIN_EPOCHS=25
+    volumes:
+      - ./data:/app/data            # Persist student images & snapshots
+      - ./saved_models:/app/saved_models  # Persist trained models
+      - ./face_recognition.db:/app/face_recognition.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
