@@ -1,7 +1,7 @@
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 python-multipart==0.0.9
-tensorflow==2.15.0
+tensorflow==2.16.1
 opencv-python-headless==4.9.0.80
 mtcnn==0.1.1
 Pillow==10.3.0
@@ -13,5 +13,4 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 scikit-learn==1.4.2
 matplotlib==3.8.4
-shutil2==0.0.4
 aiofiles==23.2.1

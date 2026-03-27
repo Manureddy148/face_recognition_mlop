@@ -1,0 +1,32 @@
+# Log of Actions
+
+1.  **Git:**
+    *   Checked git status: `git status`
+    *   Added all files to git: `git add .`
+    *   Committed files with message "Initial commit": `git commit -m "Initial commit"`
+    *   Checked git status again: `git status`
+    *   Showed the last commit: `git log -n 1`
+    *   Listed all files tracked by git: `git ls-tree -r HEAD --name-only`
+    *   Checked for remote repositories: `git remote -v`
+    *   Checked the current branch: `git branch --show-current`
+    *   Pushed the `feat/lfw-pretraining-guide` branch to origin: `git push origin feat/lfw-pretraining-guide`
+    *   Created a new branch `feat/indian-faces-dataset`: `git checkout -b feat/indian-faces-dataset`
+
+2.  **File System:**
+    *   Listed files in `app/model`: `ls -R app/model` (failed), `dir /s /b app\model` (failed)
+    *   Created `pretrain_indian_faces.py`: `write_file`
+    *   Created `data/indian_faces` directory: `mkdir data\indian_faces`
+    *   Listed contents of downloaded dataset: `ls "C:\Users\Dell\.cache\kagglehub\datasets\anirudhsimhachalam\indian-movie-faces-datasetimfdb-face-recognition\versions\1"`
+    *   Listed contents of nested dataset directory: `ls "C:\Users\Dell\.cache\kagglehub\datasets\anirudhsimhachalam\indian-movie-faces-datasetimfdb-face-recognition\versions\1\IMFDB FR dataset"`
+    *   Listed contents of the final dataset directory: `ls "C:\Users\Dell\.cache\kagglehub\datasets\anirudhsimhachalam\indian-movie-faces-datasetimfdb-face-recognition\versions\1\IMFDB FR dataset\IMFDB FR dataset"`
+
+3.  **Python and Pip:**
+    *   Installed `kagglehub`: `pip install kagglehub` (failed), `python -m pip install kagglehub` (failed), `py -3 -m pip install kagglehub` (succeeded)
+    *   Created `download_dataset.py`: `write_file`
+    *   Ran `download_dataset.py`: `python download_dataset.py` (failed), `py -3 download_dataset.py` (succeeded)
+    *   Modified `pretrain_indian_faces.py`: `write_file`
+    *   Created `evaluate_indian_faces.py`: `write_file`
+
+4.  **Web Search:**
+    *   Searched for "indian movie faces datasetimfdb face recognition kaggle": `google_web_search`
+    *   Searched for "Indian Movie Face Database (IMFDB) kaggle": `google_web_search`

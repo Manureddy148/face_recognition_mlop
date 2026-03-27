@@ -1,0 +1,20 @@
+# Dataset Details
+
+*   **Dataset Name:** Indian Movie Faces Dataset (IMFDB)
+*   **Kaggle URL:** https://www.kaggle.com/datasets/anirudhsimhachalam/indian-movie-faces-datasetimfdb-face-recognition
+*   **Number of Classes:** 100
+*   **Number of Images:** 34,512
+
+# Pre-training Details
+
+*   **Model Architecture:** VGG16 with a custom classifier head.
+    *   VGG16 (ImageNet weights, frozen base)
+    *   GlobalAveragePooling2D
+    *   Dense(512, ReLU) + BatchNorm + Dropout(0.5)
+    *   Dense(256, ReLU) + BatchNorm + Dropout(0.3)
+    *   Dense(num_classes, Softmax)
+*   **Image Size:** 224x224
+*   **Batch Size:** 16
+*   **Epochs:** 30 (default, can be changed with `PRETRAIN_EPOCHS` environment variable)
+*   **Optimizer:** Adam (learning_rate=1e-3)
+*   **Loss Function:** Categorical Cross-entropy
