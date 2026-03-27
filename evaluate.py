@@ -4,9 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import tensorflow as tf
-from sklearn.datasets import fetch_lfw_people
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
+
+from lfw_cache import load_lfw_people_cached
 
 
 def main():
@@ -14,7 +15,7 @@ def main():
     with open("saved_models/pretrain_labels.json", encoding="utf-8") as f:
         names = json.load(f)
 
-    lfw = fetch_lfw_people(min_faces_per_person=20, resize=1.0)
+    lfw = load_lfw_people_cached(min_faces_per_person=20, resize=1.0)
     images = tf.image.resize(
         np.stack([img[:, :, np.newaxis] for img in lfw.images], axis=0),
         (224, 224),
