@@ -16,6 +16,9 @@ import {
 
 export default function SignUpPage() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -35,7 +38,7 @@ export default function SignUpPage() {
     setStatus("Registering...");
 
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/signup", {
+      const res = await fetch(`${apiBase}/api/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

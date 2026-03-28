@@ -16,6 +16,9 @@ import {
 
 export default function SignInPage() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [formData, setFormData] = useState({ 
     email: "", 
     password: "",
@@ -35,7 +38,7 @@ export default function SignInPage() {
     setStatus("Signing in...");
 
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/signin", {
+      const res = await fetch(`${apiBase}/api/signin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

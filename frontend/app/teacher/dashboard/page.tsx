@@ -14,6 +14,9 @@ import {
 
 export default function TeacherDashboard() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [teacherName, setTeacherName] = useState("");
   const [employeeId, setEmployeeId] = useState("");
@@ -50,7 +53,7 @@ export default function TeacherDashboard() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://127.0.0.1:5000/api/logout", {
+      await fetch(`${apiBase}/api/logout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });

@@ -15,6 +15,9 @@ import {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [username, setUsername] = useState("");
   const [userEmail, setUserEmail] = useState("");
@@ -49,7 +52,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://127.0.0.1:5000/api/logout", {
+      await fetch(`${apiBase}/api/logout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
