@@ -108,10 +108,25 @@ jobs:
       - name: Run smoke tests
         run: |
           echo "Testing backend health check..."
-          curl -f ${{ steps.backend_url.outputs.url }}/health || echo "Backend test failed"
+          BACKEND_HEALTH_URL="${{ steps.backend_url.outputs.url }}/health"
+          BACKEND_OK=false
+          for i in {1..8}; do
+            if curl -fsS --max-time 30 "$BACKEND_HEALTH_URL" > /tmp/backend-health.json; then
+              echo "Backend health check passed on attempt $i"
+              cat /tmp/backend-health.json
+              BACKEND_OK=true
+              break
+            fi
+            echo "Backend not ready yet (attempt $i), retrying..."
+            sleep 10
+          done
+          if [ "$BACKEND_OK" = false ]; then
+            echo "Backend health check failed after retries"
+            exit 1
+          fi
           echo ""
           echo "Testing frontend accessibility..."
-          curl -f ${{ steps.frontend_url.outputs.url }} || echo "Frontend test failed"
+          curl -fsSI --max-time 30 ${{ steps.frontend_url.outputs.url }}
 
       - name: Comment PR with deployment URLs
         if: github.event_name == 'pull_request'
