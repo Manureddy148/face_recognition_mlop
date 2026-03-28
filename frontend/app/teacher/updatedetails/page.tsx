@@ -28,6 +28,9 @@ interface SearchFilters {
 
 export default function TeacherUpdateStudentDetails() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [student, setStudent] = useState<Student | null>(null);
   const [originalStudent, setOriginalStudent] = useState<Student | null>(null);
   const [searchResults, setSearchResults] = useState<Student[]>([]);
@@ -124,7 +127,7 @@ export default function TeacherUpdateStudentDetails() {
         }
       });
 
-      const res = await fetch(`http://127.0.0.1:5000/api/teacher/students/search?${params}`, {
+      const res = await fetch(`${apiBase}/api/teacher/students/search?${params}`, {
         headers: {
           "Content-Type": "application/json",
           "X-User-Type": "teacher",
@@ -158,7 +161,7 @@ export default function TeacherUpdateStudentDetails() {
     setStatus("");
 
     try {
-      const res = await fetch(`http://127.0.0.1:5000/api/teacher/student/${selectedStudent._id}`, {
+      const res = await fetch(`${apiBase}/api/teacher/student/${selectedStudent._id}`, {
         headers: {
           "Content-Type": "application/json",
           "X-User-Type": "teacher",
@@ -199,7 +202,7 @@ export default function TeacherUpdateStudentDetails() {
     setStatus("Updating student details...");
 
     try {
-      const res = await fetch(`http://127.0.0.1:5000/api/teacher/student/${student._id}`, {
+      const res = await fetch(`${apiBase}/api/teacher/student/${student._id}`, {
         method: "PUT",
         headers: { 
           "Content-Type": "application/json",
@@ -248,7 +251,7 @@ export default function TeacherUpdateStudentDetails() {
     setStatus("Deleting student...");
 
     try {
-      const res = await fetch(`http://127.0.0.1:5000/api/teacher/student/${student._id}`, {
+      const res = await fetch(`${apiBase}/api/teacher/student/${student._id}`, {
         method: "DELETE",
         headers: { 
           "Content-Type": "application/json",

@@ -42,6 +42,9 @@ interface FilterOptions {
 
 export default function UpdateStudentDetails() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [students, setStudents] = useState<Student[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -101,7 +104,7 @@ export default function UpdateStudentDetails() {
 
   const fetchStudents = async (email: string, type: "student" | "teacher") => {
     try {
-      let url = "http://127.0.0.1:5000/api/students";
+      let url = `${apiBase}/api/students`;
       let headers: Record<string, string> = {
         "Content-Type": "application/json",
         "X-User-Type": type
@@ -112,7 +115,7 @@ export default function UpdateStudentDetails() {
         headers["X-User-Email"] = email;
       } else {
         // For teachers: get all students (admin access)
-        url = "http://127.0.0.1:5000/api/admin/students";
+        url = `${apiBase}/api/admin/students`;
         headers["X-User-Email"] = email;
       }
 
@@ -217,7 +220,7 @@ export default function UpdateStudentDetails() {
         headers["X-User-Email"] = userEmail;
       }
 
-      const res = await fetch(`http://127.0.0.1:5000/api/students/${selectedStudent._id}`, {
+      const res = await fetch(`${apiBase}/api/students/${selectedStudent._id}`, {
         method: "PUT",
         headers,
         body: JSON.stringify({
@@ -262,7 +265,7 @@ export default function UpdateStudentDetails() {
     }
 
     try {
-      const res = await fetch(`http://127.0.0.1:5000/api/students/${studentId}`, {
+      const res = await fetch(`${apiBase}/api/students/${studentId}`, {
         method: "DELETE",
         headers: { 
           "Content-Type": "application/json",

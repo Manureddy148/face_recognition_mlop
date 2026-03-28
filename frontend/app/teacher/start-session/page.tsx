@@ -7,6 +7,9 @@ import CameraCapture, { FaceData } from "../../components/CameraCapture";
 
 export default function DemoSessionPage() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionActive, setSessionActive] = useState(false);
   const [recognitionStarted, setRecognitionStarted] = useState(false);
@@ -38,7 +41,7 @@ export default function DemoSessionPage() {
 
     setStatus("Creating session...");
     try {
-      const res = await fetch("http://localhost:5000/api/attendance/create_session", {
+      const res = await fetch(`${apiBase}/api/attendance/create_session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -70,7 +73,7 @@ export default function DemoSessionPage() {
       }
 
       try {
-        const res = await fetch("http://localhost:5000/api/attendance/real-mark", {
+        const res = await fetch(`${apiBase}/api/attendance/real-mark`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),

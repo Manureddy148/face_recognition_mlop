@@ -17,6 +17,9 @@ interface AttendanceRecord {
 
 export default function ViewAttendance() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
@@ -48,7 +51,7 @@ export default function ViewAttendance() {
       if (filterSubject) params.set("subject", filterSubject);
       if (filterStudentId) params.set("student_id", filterStudentId);
 
-      const res = await fetch(`http://127.0.0.1:5000/api/attendance?${params.toString()}`);
+      const res = await fetch(`${apiBase}/api/attendance?${params.toString()}`);
       const raw = await res.text();
       let data: any;
       try {
@@ -88,7 +91,7 @@ export default function ViewAttendance() {
       if (filterDivision) params.set("division", filterDivision);
       if (filterSubject) params.set("subject", filterSubject);
 
-      const res = await fetch(`http://127.0.0.1:5000/api/attendance/export?${params.toString()}`);
+      const res = await fetch(`${apiBase}/api/attendance/export?${params.toString()}`);
       const raw = await res.text();
       let data: any;
       try {

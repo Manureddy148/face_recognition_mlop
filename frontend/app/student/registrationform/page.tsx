@@ -31,6 +31,9 @@ interface StudentData {
 
 export default function StudentRegistrationForm() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [formData, setFormData] = useState<StudentData>({
     studentName: "",
     studentId: "",
@@ -115,7 +118,7 @@ export default function StudentRegistrationForm() {
     setStatus("Registering student...");
     try {
       const headerEmail = (typeof window !== 'undefined' && localStorage.getItem('userEmail')) || formData.email;
-      const res = await fetch("http://127.0.0.1:5000/api/register-student", {
+      const res = await fetch(`${apiBase}/api/register-student`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

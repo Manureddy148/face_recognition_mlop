@@ -14,6 +14,9 @@ interface RecognizeResult {
 
 export default function DemoSession() {
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [lastResult, setLastResult] = useState<RecognizeResult | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
@@ -22,7 +25,7 @@ export default function DemoSession() {
     if (!isLiveActive) return;
 
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/demo/recognize", {
+      const res = await fetch(`${apiBase}/api/demo/recognize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: dataUrl }),
