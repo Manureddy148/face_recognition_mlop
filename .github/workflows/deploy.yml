@@ -8,6 +8,7 @@ on:
   workflow_dispatch:  # Manual trigger
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-central1
   BACKEND_SERVICE: attendance-backend
@@ -23,10 +24,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: 'projects/149325054934/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'attendance-sa@project-e553cc0c-7d4a-4519-ade.iam.gserviceaccount.com'
@@ -34,7 +35,7 @@ jobs:
           access_token_lifetime: '3600s'
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for GCP
         run: |
@@ -131,7 +132,7 @@ jobs:
           echo "Frontend: ${{ steps.frontend_url.outputs.url }}" >> deployment-info/urls.txt
 
       - name: Upload deployment artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: deployment-urls
           path: deployment-info/urls.txt
