@@ -76,61 +76,42 @@ class ModelManager:
 
     def _initialize_models(self):
         """Initialize all face recognition models with proper error handling"""
-        logger.info("🤖 Starting model initialization...")
+        logger.info("Starting model initialization...")
         start_time = time.time()
 
         self.models_ready = False
         self.detector = None
         self.deepface_ready = False
+        self.initialization_error = None
 
         try:
             # 1. Initialize MTCNN detector with optimized parameters
             from mtcnn import MTCNN
             logger.info("Loading MTCNN detector...")
             self.detector = MTCNN()
-            logger.info("✅ MTCNN detector loaded successfully")
+            logger.info("MTCNN detector loaded successfully")
 
-            # 2. Preload DeepFace model properly
+            # 2. Validate DeepFace import only. Do not warm models at startup,
+            # because weight downloads can fail in cold-start environments.
             from deepface import DeepFace
-            logger.info("Warming up DeepFace Facenet512 model...")
-
-            # Force model download and initialization with dummy prediction
-            dummy_img = np.zeros((160, 160, 3), dtype=np.uint8)
-
-            # This forces the model to be downloaded and cached
-            _ = DeepFace.represent(
-                dummy_img, 
-                model_name='Facenet512', 
-                detector_backend='skip',
-                enforce_detection=False
-            )
-
-            # Additional warm-up with different image size
-            dummy_img_2 = np.ones((224, 224, 3), dtype=np.uint8) * 128
-            _ = DeepFace.represent(
-                dummy_img_2, 
-                model_name='Facenet512', 
-                detector_backend='skip',
-                enforce_detection=False
-            )
-
             self.deepface_ready = True
-            logger.info("✅ DeepFace Facenet512 model warmed up successfully")
+            logger.info("DeepFace import validation successful")
 
             self.models_ready = True
 
             initialization_time = time.time() - start_time
-            logger.info(f"🎉 All models initialized successfully in {initialization_time:.2f} seconds")
+            logger.info(f"Model initialization completed in {initialization_time:.2f} seconds")
 
         except Exception as e:
-            logger.error(f"❌ Model initialization failed: {e}")
+            self.initialization_error = str(e)
+            logger.error(f"Model initialization failed: {e}")
             self.models_ready = False
-            raise e
+            self.deepface_ready = False
 
     def get_detector(self):
         """Get the MTCNN detector instance"""
-        if not self.models_ready:
-            raise RuntimeError("Models not properly initialized")
+        if self.detector is None:
+            raise RuntimeError(self.initialization_error or "MTCNN detector not initialized")
         return self.detector
 
     def is_ready(self):
@@ -140,22 +121,12 @@ class ModelManager:
     def health_check(self):
         """Perform model health check"""
         try:
-            if not self.models_ready:
+            if self.detector is None:
                 return False
 
             # Test MTCNN
             test_img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
             _ = self.detector.detect_faces(test_img)
-
-            # Test DeepFace
-            from deepface import DeepFace
-            test_face = np.random.randint(0, 255, (160, 160, 3), dtype=np.uint8)
-            _ = DeepFace.represent(
-                test_face, 
-                model_name='Facenet512', 
-                detector_backend='skip',
-                enforce_detection=False
-            )
 
             return True
 
@@ -179,7 +150,7 @@ app.config["ATTENDANCE_COLLECTION"] = attendance_collection
 
 # CRITICAL: Pass model manager to Flask config so blueprints can access it
 app.config["MODEL_MANAGER"] = model_manager
-app.config["MTCNN_DETECTOR"] = model_manager.get_detector()
+app.config["MTCNN_DETECTOR"] = model_manager.detector
 
 bcrypt = Bcrypt(app)
 
@@ -194,6 +165,7 @@ def health_check():
         "status": "healthy" if model_status and model_health else "unhealthy",
         "models_ready": model_status,
         "models_healthy": model_health,
+        "initialization_error": model_manager.initialization_error,
         "timestamp": time.time()
     }
 
@@ -226,12 +198,8 @@ for rule in app.url_map.iter_rules():
     logger.info(f"  {rule}")
 
 if __name__ == "__main__":
-    logger.info("🚀 Starting Flask server...")
+    logger.info("Starting Flask server...")
 
-    # Final model verification before starting
-    if model_manager.is_ready():
-        logger.info("🎯 All systems ready! Server starting on http://0.0.0.0:5000")
-        app.run(host="0.0.0.0", port=5000, debug=False)  # Set debug=False for production
-    else:
-        logger.error("❌ Cannot start server - models not ready")
-        exit(1)
+    if not model_manager.is_ready():
+        logger.warning("Starting in degraded mode: model manager is not fully ready")
+    app.run(host="0.0.0.0", port=5000, debug=False)
