@@ -75,7 +75,15 @@ jobs:
             --timeout 600 \
             --max-instances 10 \
             --set-env-vars="FIRESTORE_PROJECT_ID=${{ env.PROJECT_ID }},FLASK_ENV=production" \
-            --service-account=${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+            --service-account=attendance-sa@project-e553cc0c-7d4a-4519-ade.iam.gserviceaccount.com \
+            --allow-unauthenticated
+
+      - name: Get backend service URL
+        id: backend_url
+        run: |
+          BACKEND_URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} --region ${{ env.REGION }} --format='value(status.url)')
+          echo "url=$BACKEND_URL" >> $GITHUB_OUTPUT
+          echo "Backend URL: $BACKEND_URL"
 
       - name: Deploy frontend to Cloud Run
         run: |
@@ -86,14 +94,8 @@ jobs:
             --memory 1Gi \
             --cpu 1 \
             --max-instances 10 \
-            --set-env-vars="NEXT_PUBLIC_API_URL=https://${{ env.BACKEND_SERVICE }}-xxxxx.a.run.app"
-
-      - name: Get backend service URL
-        id: backend_url
-        run: |
-          BACKEND_URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} --region ${{ env.REGION }} --format='value(status.url)')
-          echo "url=$BACKEND_URL" >> $GITHUB_OUTPUT
-          echo "Backend URL: $BACKEND_URL"
+            --set-env-vars="NEXT_PUBLIC_API_URL=${{ steps.backend_url.outputs.url }}" \
+            --allow-unauthenticated
 
       - name: Get frontend service URL
         id: frontend_url
