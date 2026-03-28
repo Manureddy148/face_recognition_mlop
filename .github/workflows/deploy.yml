@@ -93,7 +93,9 @@ jobs:
             --memory 1Gi \
             --cpu 1 \
             --max-instances 10 \
-            --set-env-vars="NEXT_PUBLIC_API_URL=${{ steps.backend_url.outputs.url }}"
+            --set-env-vars="NEXT_PUBLIC_API_URL=${{ steps.backend_url.outputs.url }}" \
+            --service-account=attendance-sa@project-e553cc0c-7d4a-4519-ade.iam.gserviceaccount.com \
+            --allow-unauthenticated
 
       - name: Get frontend service URL
         id: frontend_url
