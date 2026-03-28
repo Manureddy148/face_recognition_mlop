@@ -75,7 +75,7 @@ jobs:
             --cpu 2 \
             --timeout 600 \
             --max-instances 10 \
-            --set-env-vars="FIRESTORE_PROJECT_ID=${{ env.PROJECT_ID }},FLASK_ENV=production" \
+            --set-env-vars="FIRESTORE_PROJECT_ID=${{ env.PROJECT_ID }},FLASK_ENV=production,MONGODB_URI=${{ secrets.MONGODB_URI }}" \
             --service-account=attendance-sa@project-e553cc0c-7d4a-4519-ade.iam.gserviceaccount.com
 
       - name: Get backend service URL

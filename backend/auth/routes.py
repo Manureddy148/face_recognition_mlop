@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_bcrypt import Bcrypt
 import time
+from pymongo.errors import PyMongoError
 
 auth_bp = Blueprint("auth", __name__)
 bcrypt = Bcrypt()
@@ -31,7 +32,15 @@ def api_signup():
         auth_col = db.auth_users
     
     # Check if email already exists in the appropriate collection
-    if auth_col.find_one({'email': email}):
+    try:
+        existing_user = auth_col.find_one({'email': email})
+    except PyMongoError:
+        return jsonify({
+            "success": False,
+            "error": "Database connection error. Please try again later."
+        }), 503
+
+    if existing_user:
         return jsonify({
             "success": False, 
             "error": f"Email already registered as {user_type}"
@@ -57,7 +66,13 @@ def api_signup():
             "role": "teacher"
         })
     
-    auth_col.insert_one(user_doc)
+    try:
+        auth_col.insert_one(user_doc)
+    except PyMongoError:
+        return jsonify({
+            "success": False,
+            "error": "Unable to create account right now. Please try again later."
+        }), 503
 
     return jsonify({
         "success": True, 
@@ -85,7 +100,13 @@ def api_signin():
         user_role = "student"
     
     # Find user in appropriate collection
-    user = auth_col.find_one({'email': email})
+    try:
+        user = auth_col.find_one({'email': email})
+    except PyMongoError:
+        return jsonify({
+            "success": False,
+            "error": "Database connection error. Please try again later."
+        }), 503
     
     if not user:
         return jsonify({
@@ -125,13 +146,19 @@ def api_signin():
         })
         
         # Check if teacher has student record too (optional)
-        student_record = db.students.find_one({'email': email})
+        try:
+            student_record = db.students.find_one({'email': email})
+        except PyMongoError:
+            student_record = None
         if student_record:
             user_info['hasStudentRecord'] = True
             user_info['studentId'] = student_record.get('studentId')
     else:
         # For students, try to get student record
-        student_record = db.students.find_one({'email': email})
+        try:
+            student_record = db.students.find_one({'email': email})
+        except PyMongoError:
+            student_record = None
         if student_record:
             user_info.update({
                 "studentId": student_record.get('studentId'),
