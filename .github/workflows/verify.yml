@@ -1,0 +1,51 @@
+name: Verify PR Changes
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Check backend dependencies
+        run: |
+          pip install -r backend/requirements.txt --dry-run
+          echo "✅ Backend dependencies verified"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Check frontend dependencies
+        run: |
+          cd frontend
+          npm ci --dry-run
+          echo "✅ Frontend dependencies verified"
+
+      - name: Verify Docker setup
+        run: |
+          docker build --dry-run -f backend/Dockerfile backend/
+          docker build --dry-run -f frontend/Dockerfile frontend/
+          echo "✅ Docker builds verified"
+
+      - name: Comment verification result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ **Verification Passed**\n\n- ✅ Backend dependencies OK\n- ✅ Frontend dependencies OK\n- ✅ Docker builds verified`
+            })

@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+.pytest_cache
+.env
+.env.local
+.venv
+venv
+.DS_Store
+*.log
+.git
+.gitignore
+NodeModules
+TrainingImage
+StudentDetails
+Attendance
+UI_Image
+Project Snap
