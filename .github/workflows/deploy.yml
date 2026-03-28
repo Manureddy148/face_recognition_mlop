@@ -129,7 +129,7 @@ jobs:
           echo "Frontend: ${{ steps.frontend_url.outputs.url }}" >> deployment-info/urls.txt
 
       - name: Upload deployment artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: deployment-urls
           path: deployment-info/urls.txt
