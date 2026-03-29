@@ -7,6 +7,7 @@ Pandas(pip install pandas)
 Numpy(pip install numpy)
 Pillow (pip install Pillow)
 ****************************************************************************
+frontend
 haarcascade_frontalface_default.xml  ->>>> 
 haarcascades - the folder contains trained classifiers for detecting objects
                of a particular type, e.g. faces (frontal, profile), pedestrians etc.

@@ -10,7 +10,7 @@ import datetime
 import time
 import tkinter.font as font
 import pyttsx3
-
+#file run
 # project module
 import show_attendance
 import takeImage

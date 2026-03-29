@@ -6,7 +6,7 @@ import datetime
 import time
 
 
-
+#run code
 # take Image of user
 def TakeImage(l1, l2, haarcasecade_path, trainimage_path, message, err_screen,text_to_speech):
     if (l1 == "") and (l2==""):
