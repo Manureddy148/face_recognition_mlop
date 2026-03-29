@@ -14,6 +14,31 @@ logger = logging.getLogger(__name__)
 
 demo_session_bp = Blueprint("demo_session", __name__)
 
+
+def parse_embedding_output(rep):
+    """Normalize DeepFace.represent outputs across versions to a 1D float32 vector."""
+    if rep is None:
+        raise ValueError("represent returned None")
+
+    if isinstance(rep, dict) and "embedding" in rep:
+        return np.array(rep["embedding"], dtype=np.float32)
+
+    if isinstance(rep, list):
+        if len(rep) == 0:
+            raise ValueError("represent returned empty list")
+        first = rep[0]
+        if isinstance(first, dict) and "embedding" in first:
+            return np.array(first["embedding"], dtype=np.float32)
+        if isinstance(first, (list, tuple, np.ndarray)):
+            return np.array(first, dtype=np.float32)
+        if isinstance(first, (int, float, np.integer, np.floating)):
+            return np.array(rep, dtype=np.float32)
+
+    if isinstance(rep, np.ndarray):
+        return rep.astype(np.float32)
+
+    raise ValueError(f"unsupported represent output type: {type(rep).__name__}")
+
 def read_image_from_bytes_optimized(b, target_size=(640, 480)):
     """Optimized image reading with size constraints"""
     img = Image.open(io.BytesIO(b)).convert("RGB")
@@ -61,7 +86,10 @@ def extract_embedding_optimized(face_rgb):
             detector_backend="skip",
             enforce_detection=False  # Skip additional detection
         )
-        return np.array(rep[0]["embedding"], dtype=np.float32)  # Use float32 for speed
+        emb = parse_embedding_output(rep)
+        if emb.ndim == 1 and emb.shape[0] == 512 and np.isfinite(emb).all():
+            return emb
+        raise ValueError(f"invalid embedding shape: {tuple(emb.shape)}")
 
     except Exception as e:
         logger.error(f"Embedding extraction error: {e}")
@@ -72,8 +100,13 @@ class EmbeddingCache:
     def __init__(self):
         self.student_embeddings = None
         self.last_update = 0
-        self.cache_duration = 300  # 5 minutes
+        self.cache_duration = 30  # Keep fresh so newly registered students are recognized quickly
         self.lock = threading.Lock()
+
+    def invalidate(self):
+        with self.lock:
+            self.student_embeddings = None
+            self.last_update = 0
 
     def get_embeddings(self, students_col):
         current_time = time.time()
@@ -157,7 +190,7 @@ def demo_recognize_optimized():
     db = current_app.config.get("DB")
     db_available = db is not None
     students_col = db.students if db_available else None
-    threshold = float(current_app.config.get("THRESHOLD", "0.6"))
+    threshold = float(current_app.config.get("THRESHOLD", "0.7"))
 
     image_b64 = data.get("image", "")
     if image_b64.startswith("data:"):
@@ -246,6 +279,13 @@ def demo_recognize_optimized():
             "cache_enabled": True
         }
     })
+
+
+@demo_session_bp.route('/api/demo/cache/invalidate', methods=['POST'])
+def invalidate_demo_cache():
+    """Allow other routes to force-refresh recognition cache after registration updates."""
+    embedding_cache.invalidate()
+    return jsonify({"success": True, "message": "Demo embedding cache invalidated"})
 
 @demo_session_bp.route('/api/demo/session', methods=['POST'])
 def create_demo_session():

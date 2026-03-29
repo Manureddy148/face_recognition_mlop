@@ -74,7 +74,7 @@ export default function DemoSession() {
                   <Camera className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Face Recognition Demo</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Face Recognition</h1>
                   <p className="text-slate-600 text-sm font-medium">Live demonstration and testing</p>
                 </div>
               </div>

@@ -1,16 +1,26 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_bcrypt import Bcrypt
 import time
+import re
 from pymongo.errors import PyMongoError
 
 auth_bp = Blueprint("auth", __name__)
 bcrypt = Bcrypt()
 
+
+def normalize_email(email):
+    return (email or "").strip().lower()
+
+
+def ci_email_query(email):
+    # Case-insensitive exact match against stored email values.
+    return {"$regex": f"^{re.escape(email)}$", "$options": "i"}
+
 @auth_bp.route('/api/signup', methods=['POST'])
 def api_signup():
     data = request.get_json()
     username = data.get('username')
-    email = data.get('email')
+    email = normalize_email(data.get('email'))
     password = data.get('password')
     user_type = data.get('userType', 'student')  # Default to student
 
@@ -38,7 +48,7 @@ def api_signup():
     
     # Check if email already exists in the appropriate collection
     try:
-        existing_user = auth_col.find_one({'email': email})
+        existing_user = auth_col.find_one({'email': ci_email_query(email)})
     except PyMongoError:
         return jsonify({
             "success": False,
@@ -87,7 +97,7 @@ def api_signup():
 @auth_bp.route('/api/signin', methods=['POST'])
 def api_signin():
     data = request.get_json()
-    email = data.get('email')
+    email = normalize_email(data.get('email'))
     password = data.get('password')
     user_type = data.get('userType', 'student')  # Default to student
 
@@ -111,7 +121,7 @@ def api_signin():
     
     # Find user in appropriate collection
     try:
-        user = auth_col.find_one({'email': email})
+        user = auth_col.find_one({'email': ci_email_query(email)})
     except PyMongoError:
         return jsonify({
             "success": False,
@@ -157,7 +167,7 @@ def api_signin():
         
         # Check if teacher has student record too (optional)
         try:
-            student_record = db.students.find_one({'email': email})
+            student_record = db.students.find_one({'email': ci_email_query(email)})
         except PyMongoError:
             student_record = None
         if student_record:
@@ -166,7 +176,7 @@ def api_signin():
     else:
         # For students, try to get student record
         try:
-            student_record = db.students.find_one({'email': email})
+            student_record = db.students.find_one({'email': ci_email_query(email)})
         except PyMongoError:
             student_record = None
         if student_record:
@@ -193,7 +203,7 @@ def api_logout():
 @auth_bp.route('/api/user/profile', methods=['GET'])
 def get_user_profile():
     """Get current user's profile information"""
-    user_email = request.headers.get('X-User-Email')
+    user_email = normalize_email(request.headers.get('X-User-Email'))
     user_type = request.headers.get('X-User-Type', 'student')
     
     if not user_email:
@@ -207,7 +217,7 @@ def get_user_profile():
     else:
         auth_col = db.auth_users
     
-    user = auth_col.find_one({'email': user_email}, {'password': 0})  # Exclude password
+    user = auth_col.find_one({'email': ci_email_query(user_email)}, {'password': 0})  # Exclude password
     
     if not user:
         return jsonify({"success": False, "error": "User not found"}), 404
@@ -224,7 +234,7 @@ def get_user_profile():
 def switch_user_role():
     """Allow users to switch between teacher and student roles if they have both"""
     data = request.get_json()
-    user_email = data.get('email')
+    user_email = normalize_email(data.get('email'))
     target_type = data.get('targetType')  # 'teacher' or 'student'
     
     if not all([user_email, target_type]):
@@ -238,7 +248,7 @@ def switch_user_role():
     else:
         target_col = db.auth_users
     
-    target_user = target_col.find_one({'email': user_email})
+    target_user = target_col.find_one({'email': ci_email_query(user_email)})
     
     if not target_user:
         return jsonify({

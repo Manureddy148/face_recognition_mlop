@@ -1,8 +1,13 @@
 from flask import Blueprint, request, jsonify, current_app
 from bson import ObjectId
 import time
+import re
 
 student_update_bp = Blueprint("student_update", __name__)
+
+
+def normalize_email(email):
+    return (email or "").strip().lower()
 
 # ============================================================================
 # STUDENT ROUTES (Students can only update their own records)
@@ -16,7 +21,7 @@ def get_students():
     
     try:
         # Get logged-in user's email from request headers or query params
-        user_email = request.headers.get('X-User-Email') or request.args.get('user_email')
+        user_email = normalize_email(request.headers.get('X-User-Email') or request.args.get('user_email'))
         user_type = request.headers.get('X-User-Type', 'student')
         
         if not user_email:
@@ -24,7 +29,7 @@ def get_students():
         
         # For students: only show their own record
         if user_type == 'student':
-            query = {"email": user_email}
+            query = {"email": {'$regex': f'^{re.escape(user_email)}$', '$options': 'i'}}
             
             # Get query parameters for additional filtering
             department = request.args.get('department', '')
@@ -73,7 +78,7 @@ def get_student(student_id):
     
     try:
         # Get logged-in user's email and type
-        user_email = request.headers.get('X-User-Email')
+        user_email = normalize_email(request.headers.get('X-User-Email'))
         user_type = request.headers.get('X-User-Type', 'student')
         
         if not user_email:
@@ -87,7 +92,7 @@ def get_student(student_id):
         # Authorization based on user type
         if user_type == 'student':
             # Check if logged-in user's email matches student's email
-            if student.get('email') != user_email:
+            if normalize_email(student.get('email')) != user_email:
                 return jsonify({
                     "success": False, 
                     "error": "Unauthorized: You can only view your own student record"
@@ -113,7 +118,7 @@ def update_student(student_id):
     
     try:
         # Get logged-in user's email and type
-        user_email = request.headers.get('X-User-Email') or data.get('user_email')
+        user_email = normalize_email(request.headers.get('X-User-Email') or data.get('user_email'))
         user_type = request.headers.get('X-User-Type', 'student')
         
         if not user_email:
@@ -127,14 +132,14 @@ def update_student(student_id):
         # Authorization check based on user type
         if user_type == 'student':
             # Students can only update their own record
-            if student.get('email') != user_email:
+            if normalize_email(student.get('email')) != user_email:
                 return jsonify({
                     "success": False, 
                     "error": "Unauthorized: You can only update your own student record"
                 }), 403
             
             # Students cannot change email
-            if data.get('email') and data.get('email') != student.get('email'):
+            if data.get('email') and normalize_email(data.get('email')) != normalize_email(student.get('email')):
                 return jsonify({
                     "success": False, 
                     "error": "Email cannot be changed for security reasons. Contact administrator."
@@ -143,9 +148,9 @@ def update_student(student_id):
         elif user_type == 'teacher':
             # Teachers can update any student record
             # Check if new email conflicts with existing one (if changed)
-            if data.get('email') and data.get('email') != student.get('email'):
+            if data.get('email') and normalize_email(data.get('email')) != normalize_email(student.get('email')):
                 existing = students_col.find_one({
-                    'email': data.get('email'),
+                    'email': {'$regex': f'^{re.escape(normalize_email(data.get("email")))}$', '$options': 'i'},
                     '_id': {'$ne': ObjectId(student_id)}
                 })
                 if existing:
@@ -178,7 +183,7 @@ def update_student(student_id):
         
         # Only update email if teacher is making the change
         if user_type == 'teacher':
-            update_data["email"] = data.get("email", student.get("email"))
+            update_data["email"] = normalize_email(data.get("email", student.get("email")))
         
         result = students_col.update_one(
             {"_id": ObjectId(student_id)}, 
@@ -207,7 +212,7 @@ def delete_student(student_id):
     
     try:
         # Get logged-in user's email and type
-        user_email = request.headers.get('X-User-Email')
+        user_email = normalize_email(request.headers.get('X-User-Email'))
         user_type = request.headers.get('X-User-Type', 'student')
         
         if not user_email:
@@ -220,7 +225,7 @@ def delete_student(student_id):
         # Authorization check based on user type
         if user_type == 'student':
             # Students can only delete their own record
-            if student.get('email') != user_email:
+            if normalize_email(student.get('email')) != user_email:
                 return jsonify({
                     "success": False, 
                     "error": "Unauthorized: You can only delete your own student record"

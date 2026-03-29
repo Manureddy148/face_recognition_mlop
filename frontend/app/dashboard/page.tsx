@@ -90,7 +90,7 @@ export default function DashboardPage() {
       iconBg: "bg-emerald-500"
     },
     {
-      title: "Face Recognition Demo",
+      title: "Face Recognition",
       description: "Test and demonstrate live face recognition capabilities",
       icon: <Camera className="w-7 h-7" />,
       path: "/student/demo-session",

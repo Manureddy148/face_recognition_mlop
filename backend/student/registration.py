@@ -6,6 +6,7 @@ from PIL import Image
 import io
 import logging
 import traceback
+import re
 from pymongo.errors import PyMongoError
 
 student_registration_bp = Blueprint("student_registration", __name__)
@@ -153,10 +154,14 @@ def register_student():
         if not data.get(field):
             return jsonify({"success": False, "error": f"{field} is required"}), 400
 
+    normalized_email = str(data['email']).strip().lower()
+    student_id = str(data['studentId']).strip()
+
     # Check uniqueness of studentId and email
-    if students_col.find_one({'studentId': data['studentId']}):
+    if students_col.find_one({'studentId': student_id}):
         return jsonify({"success": False, "error": "Student ID already exists"}), 400
-    if students_col.find_one({'email': data['email']}):
+    email_regex = {'$regex': f'^{re.escape(normalized_email)}$', '$options': 'i'}
+    if students_col.find_one({'email': email_regex}):
         return jsonify({"success": False, "error": "Email already registered"}), 400
 
     # Validate images
@@ -210,13 +215,13 @@ def register_student():
         logger.info(f"Registration: skipped images {skipped}, accepted {len(embeddings)} embeddings")
 
     student_data = {
-        "studentId": data['studentId'],
+        "studentId": student_id,
         "studentName": data['studentName'],
         "department": data['department'],
         "year": data['year'],
         "division": data['division'],
         "semester": data['semester'],
-        "email": data['email'],
+        "email": normalized_email,
         "phoneNumber": data['phoneNumber'],
         "status": "active",
         "embeddings": embeddings,
@@ -226,7 +231,15 @@ def register_student():
     }
 
     result = students_col.insert_one(student_data)
-    return jsonify({"success": True, "studentId": data['studentId'], "record_id": str(result.inserted_id)})
+
+    # Force demo recognition cache refresh so newly registered users are recognized immediately.
+    try:
+        from student.demo_session import embedding_cache
+        embedding_cache.invalidate()
+    except Exception as cache_err:
+        logger.warning(f"Could not invalidate demo embedding cache: {cache_err}")
+
+    return jsonify({"success": True, "studentId": student_id, "record_id": str(result.inserted_id)})
 
 
 @student_registration_bp.route('/api/debug/embed-test', methods=['POST'])
