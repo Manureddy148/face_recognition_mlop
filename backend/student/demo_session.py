@@ -308,5 +308,8 @@ def model_status():
         "success": True,
         "models_ready": model_manager.is_ready(),
         "health_check": model_manager.health_check(),
+        "deepface_ready": getattr(model_manager, "deepface_ready", False),
+        "deepface_error": getattr(model_manager, "deepface_error", None),
+        "initialization_error": getattr(model_manager, "initialization_error", None),
         "timestamp": time.time()
     })

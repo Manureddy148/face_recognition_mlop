@@ -103,6 +103,7 @@ class ModelManager:
         self.models_ready = False
         self.detector = None
         self.deepface_ready = False
+        self.deepface_error = None
         self.initialization_error = None
 
         try:
@@ -116,7 +117,6 @@ class ModelManager:
             # Weights are baked into the Docker image so this should be fast.
             # Best-effort: if it fails for any reason, log and continue.
             from deepface import DeepFace
-            self.deepface_ready = True
             logger.info("Pre-warming Facenet512 model from cached weights...")
             try:
                 _dummy = np.zeros((160, 160, 3), dtype=np.uint8)
@@ -127,10 +127,14 @@ class ModelManager:
                     enforce_detection=False,
                 )
                 logger.info("Facenet512 model pre-warmed successfully")
+                self.deepface_ready = True
+                self.deepface_error = None
             except Exception as warm_err:
-                logger.warning(f"Facenet512 pre-warm skipped (will load on first use): {warm_err}")
+                self.deepface_ready = False
+                self.deepface_error = str(warm_err)
+                logger.error(f"Facenet512 pre-warm failed: {warm_err}")
 
-            self.models_ready = True
+            self.models_ready = self.deepface_ready and self.detector is not None
 
             initialization_time = time.time() - start_time
             logger.info(f"Model initialization completed in {initialization_time:.2f} seconds")
@@ -140,6 +144,7 @@ class ModelManager:
             logger.error(f"Model initialization failed: {e}")
             self.models_ready = False
             self.deepface_ready = False
+            self.deepface_error = str(e)
 
     def get_detector(self):
         """Get the MTCNN detector instance"""
@@ -207,6 +212,8 @@ def health_check():
         "status": "healthy" if is_healthy else "unhealthy",
         "models_ready": model_status,
         "models_healthy": model_health,
+        "deepface_ready": model_manager.deepface_ready,
+        "deepface_error": model_manager.deepface_error,
         "db_connected": db_connected,
         "initialization_error": model_manager.initialization_error,
         "timestamp": time.time()

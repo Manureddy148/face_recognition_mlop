@@ -66,7 +66,12 @@ def register_student():
     if db is None:
         return jsonify({"success": False, "error": "Database unavailable"}), 503
     if not model_manager or not model_manager.is_ready():
-        return jsonify({"success": False, "error": "Face models are not ready"}), 503
+        deepface_error = getattr(model_manager, "deepface_error", None)
+        return jsonify({
+            "success": False,
+            "error": "Face models are not ready",
+            "details": deepface_error,
+        }), 503
 
     detector = model_manager.get_detector()
     students_col = db.students
@@ -90,6 +95,9 @@ def register_student():
 
     embeddings = []
     skipped = []
+    decode_failed = 0
+    no_face_detected = 0
+    embedding_failed = 0
     for idx, img_b64 in enumerate(images):
         # --- decode image ---
         try:
@@ -98,6 +106,7 @@ def register_student():
         except Exception as e:
             logger.warning(f"Image {idx+1}: decode failed ({e}), skipping")
             skipped.append(idx + 1)
+            decode_failed += 1
             continue
 
         # --- detect face(s) ---
@@ -105,6 +114,7 @@ def register_student():
         if len(faces) == 0:
             logger.warning(f"Image {idx+1}: no face detected, skipping")
             skipped.append(idx + 1)
+            no_face_detected += 1
             continue
 
         # pick highest-confidence face
@@ -115,6 +125,7 @@ def register_student():
         if emb is None:
             logger.warning(f"Image {idx+1}: embedding extraction failed, skipping")
             skipped.append(idx + 1)
+            embedding_failed += 1
             continue
 
         embeddings.append(emb.tolist())
@@ -123,7 +134,14 @@ def register_student():
         return jsonify({
             "success": False,
             "error": f"Could not extract face features from enough images ({len(embeddings)}/{len(images)} succeeded). "
-                     "Please ensure good lighting, face fully in frame, and try again."
+                     "Please ensure good lighting, face fully in frame, and try again.",
+            "debug": {
+                "decode_failed": decode_failed,
+                "no_face_detected": no_face_detected,
+                "embedding_failed": embedding_failed,
+                "accepted_embeddings": len(embeddings),
+                "total_images": len(images),
+            }
         }), 400
 
     if skipped:
