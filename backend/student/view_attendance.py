@@ -8,8 +8,11 @@ attendance_bp = Blueprint("attendance", __name__)
 @attendance_bp.route('/api/attendance', methods=['GET'])
 def get_attendance():
     db = current_app.config.get("DB")
-    attendance_col = db.attendance_records
+    attendance_col = current_app.config.get("ATTENDANCE_COLLECTION")
     students_col = db.students
+
+    if attendance_col is None:
+        return jsonify({"success": False, "error": "Attendance collection unavailable"}), 503
 
     date = request.args.get('date')
     department = request.args.get('department')
@@ -140,8 +143,11 @@ def get_attendance():
 @attendance_bp.route('/api/attendance/export', methods=['GET'])
 def export_attendance():
     db = current_app.config.get("DB")
-    attendance_col = db.attendance_records
+    attendance_col = current_app.config.get("ATTENDANCE_COLLECTION")
     students_col = db.students
+
+    if attendance_col is None:
+        return jsonify({"success": False, "error": "Attendance collection unavailable"}), 503
 
     date = request.args.get('date')
     department = request.args.get('department')

@@ -49,7 +49,7 @@ export default function DemoSessionPage() {
       const data = await res.json();
       if (data.session_id) {
         setSessionId(data.session_id);
-        setStatus("✅ Session created! Click Start Face Recognition.");
+        setStatus("✅ Session created! Click Start Attendance Session.");
         setSessionActive(true);
       } else {
         setStatus("❌ Failed to create session");
@@ -62,7 +62,7 @@ export default function DemoSessionPage() {
 
   const handleRecognize = useCallback(
     async (imageDataUrl: string) => {
-      if (!sessionId) {
+      if (!sessionId || !sessionActive || !recognitionStarted) {
         setStatus("❌ Create a session first before starting recognition");
         return;
       }
@@ -96,7 +96,7 @@ export default function DemoSessionPage() {
         setFacesData([]);
       }
     },
-    [sessionId]
+    [sessionId, sessionActive, recognitionStarted]
   );
 
   const handleStartRecognition = () => {
@@ -110,7 +110,40 @@ export default function DemoSessionPage() {
 
   const handleStopRecognition = () => {
     setRecognitionStarted(false);
+    setFacesData([]);
     setStatus("Recognition stopped");
+  };
+
+  const handleEndSession = async () => {
+    if (!sessionId) {
+      setStatus("❌ No active session to end");
+      return;
+    }
+
+    setStatus("Ending attendance session...");
+    try {
+      const res = await fetch(`${apiBase}/api/attendance/end_session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        setStatus(`❌ Failed to end session${data?.error ? `: ${data.error}` : ""}`);
+        return;
+      }
+
+      setRecognitionStarted(false);
+      setSessionActive(false);
+      setSessionId(null);
+      setFacesData([]);
+      setRecognizedStudents([]);
+      setStatus("✅ Attendance session ended successfully");
+    } catch (err) {
+      console.error(err);
+      setStatus("❌ Failed to end attendance session");
+    }
   };
 
   return (
@@ -179,7 +212,17 @@ export default function DemoSessionPage() {
                   className="px-6 py-3 rounded-lg font-semibold bg-red-100 hover:bg-red-200 text-red-700 border-2 border-red-300 transition-all duration-300 flex items-center justify-center gap-3 hover:shadow-md hover:-translate-y-0.5"
                 >
                   <Square className="w-5 h-5" />
-                  Stop Recognition
+                  Stop Face Recognition
+                </button>
+              )}
+
+              {sessionId && (
+                <button
+                  onClick={handleEndSession}
+                  className="px-6 py-3 rounded-lg font-semibold bg-rose-100 hover:bg-rose-200 text-rose-700 border-2 border-rose-300 transition-all duration-300 flex items-center justify-center gap-3 hover:shadow-md hover:-translate-y-0.5"
+                >
+                  <Square className="w-5 h-5" />
+                  End Attendance Session
                 </button>
               )}
 
@@ -344,7 +387,7 @@ export default function DemoSessionPage() {
                       </li>
                       <li className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                        Start face recognition when ready
+                        Start attendance session when ready
                       </li>
                     </ul>
                   </div>
@@ -386,13 +429,13 @@ export default function DemoSessionPage() {
                     <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Play className="w-10 h-10 text-gray-600" />
                     </div>
-                    <p className="text-gray-600 font-medium mb-4">Ready to start face recognition</p>
+                    <p className="text-gray-600 font-medium mb-4">Ready to start attendance session</p>
                     <button
                       onClick={handleStartRecognition}
                       className="px-6 py-3 rounded-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white transition-all duration-300 flex items-center justify-center gap-3 mx-auto hover:shadow-lg hover:-translate-y-0.5"
                     >
                       <Play className="w-5 h-5" />
-                      Start Face Recognition
+                      Start Attendance Session
                     </button>
                   </div>
                 ) : (

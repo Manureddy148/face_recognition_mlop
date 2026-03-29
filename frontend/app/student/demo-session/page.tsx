@@ -118,7 +118,7 @@ export default function DemoSession() {
                 {isLiveActive ? (
                   <>
                     <Square className="w-5 h-5" />
-                    Stop Demo
+                    End Face Recognition
                   </>
                 ) : (
                   <>
@@ -291,7 +291,7 @@ export default function DemoSession() {
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                      Click "Stop Demo" to end the session
+                      Click "End Face Recognition" to end the session
                     </li>
                   </ul>
                 </div>
