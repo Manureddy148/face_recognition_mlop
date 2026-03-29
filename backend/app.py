@@ -6,6 +6,7 @@ import threading
 from flask import Flask
 from flask_cors import CORS
 from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 from dotenv import load_dotenv
 from flask_bcrypt import Bcrypt
 import numpy as np
@@ -46,16 +47,24 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # MongoDB setup
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+MONGODB_URI = os.getenv("MONGODB_URI") or "mongodb://localhost:27017/"
 DB_NAME = os.getenv("DATABASE_NAME", "facerecognition")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "students")
 THRESHOLD = float(os.getenv("THRESHOLD", "0.6"))
 
-client = MongoClient(MONGODB_URI)
-db = client[DB_NAME]
-students_collection = db[COLLECTION_NAME]
-attendance_db = client["facerecognition_db"]
-attendance_collection = attendance_db["attendance_records"]
+client = None
+db = None
+students_collection = None
+attendance_collection = None
+
+try:
+    client = MongoClient(MONGODB_URI)
+    db = client[DB_NAME]
+    students_collection = db[COLLECTION_NAME]
+    attendance_db = client["facerecognition_db"]
+    attendance_collection = attendance_db["attendance_records"]
+except PyMongoError as e:
+    logger.error(f"MongoDB initialization failed: {e}")
 
 # OPTIMIZED MODEL MANAGER CLASS
 class ModelManager:

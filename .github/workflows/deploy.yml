@@ -65,6 +65,15 @@ jobs:
           docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:${{ github.sha }}
           docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:latest
 
+      - name: Validate MongoDB secret
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: |
+          if [ -z "$MONGODB_URI" ]; then
+            echo "MONGODB_URI secret is missing or empty. Configure it in GitHub repository secrets."
+            exit 1
+          fi
+
       - name: Deploy backend to Cloud Run
         run: |
           gcloud run deploy ${{ env.BACKEND_SERVICE }} \

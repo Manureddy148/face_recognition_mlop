@@ -18,6 +18,11 @@ def api_signup():
         return jsonify({"success": False, "error": "All fields required"}), 400
 
     db = current_app.config.get("DB")
+    if db is None:
+        return jsonify({
+            "success": False,
+            "error": "Database unavailable. Contact administrator."
+        }), 503
     
     # Choose collection based on user type
     if user_type == 'teacher':
@@ -90,6 +95,11 @@ def api_signin():
         return jsonify({"success": False, "error": "Email and password required"}), 400
 
     db = current_app.config.get("DB")
+    if db is None:
+        return jsonify({
+            "success": False,
+            "error": "Database unavailable. Contact administrator."
+        }), 503
     
     # Choose collection based on user type
     if user_type == 'teacher':
