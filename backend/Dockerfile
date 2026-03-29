@@ -17,42 +17,21 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Pre-download Facenet512 weights during image build so runtime embedding
-# extraction never depends on outbound network. Use the same gdown transport as
-# DeepFace itself, then validate the HDF5 file before finishing the build.
-RUN python - <<'PY'
-import os
-import time
+# extraction never depends on outbound network. DeepFace's original GitHub
+# release asset is no longer available, so use a live mirror and validate the
+# downloaded HDF5 file before finishing the build.
+RUN mkdir -p /root/.deepface/weights && \
+    curl -fL --retry 5 --retry-delay 10 --retry-max-time 300 --connect-timeout 30 \
+    -o /root/.deepface/weights/facenet512_weights.h5 \
+    "https://huggingface.co/WePrompt/deepface-weights/resolve/main/facenet512_weights.h5" && \
+    python - <<'PY'
 from pathlib import Path
-
-import gdown
 import h5py
 
-url = "https://github.com/serengil/deepface_models/releases/download/v1.0/facenet512_weights.h5"
-target = Path("/root/.deepface/weights/facenet512_weights.h5")
-target.parent.mkdir(parents=True, exist_ok=True)
-
-last_error = None
-for attempt in range(1, 6):
-    if target.exists():
-        target.unlink()
-
-    print(f"Downloading Facenet512 weights (attempt {attempt}/5)...")
-    gdown.download(url, str(target), quiet=False)
-
-    try:
-        with h5py.File(target, "r"):
-            pass
-        print(f"Facenet512 weights verified successfully: {target.stat().st_size} bytes")
-        break
-    except Exception as err:
-        last_error = err
-        print(f"Validation failed on attempt {attempt}: {err}")
-        if target.exists():
-            target.unlink()
-        if attempt < 5:
-            time.sleep(5 * attempt)
-else:
-    raise RuntimeError(f"Failed to download valid Facenet512 weights: {last_error}")
+target = Path('/root/.deepface/weights/facenet512_weights.h5')
+with h5py.File(target, 'r'):
+    pass
+print(f"Facenet512 weights verified successfully: {target.stat().st_size} bytes")
 PY
 
 # Copy application
