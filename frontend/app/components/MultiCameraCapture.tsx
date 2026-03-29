@@ -18,6 +18,7 @@ const MultiCameraCapture: React.FC<MultiCameraCaptureProps> = ({ onCapture }) =>
   const [currentStep, setCurrentStep] = useState(0);
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAutoCapturing, setIsAutoCapturing] = useState(false);
 
   // Start camera
   const startCamera = async () => {
@@ -54,7 +55,7 @@ const MultiCameraCapture: React.FC<MultiCameraCaptureProps> = ({ onCapture }) =>
     return () => stopCamera();
   }, []);
 
-  const captureImage = async () => {
+  const captureImage = async (): Promise<string | null> => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (
@@ -65,29 +66,53 @@ const MultiCameraCapture: React.FC<MultiCameraCaptureProps> = ({ onCapture }) =>
       currentStep >= directions.length ||
       video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
     ) {
-      return;
+      return null;
     }
 
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return null;
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+    return dataUrl;
+  };
 
-    const updatedImages = [...capturedImages, dataUrl].slice(0, directions.length);
-    setCapturedImages(updatedImages);
-    setCurrentStep(updatedImages.length);
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    if (updatedImages.length === directions.length) {
-      setIsSubmitting(true);
-      stopCamera();
-      try {
-        await onCapture(updatedImages);
-      } finally {
-        setIsSubmitting(false);
+  const handleAutoCapture = async () => {
+    if (isSubmitting || isAutoCapturing || cameraStatus !== "active") return;
+
+    setIsAutoCapturing(true);
+    setCapturedImages([]);
+    setCurrentStep(0);
+
+    const images: string[] = [];
+    for (let i = 0; i < directions.length; i++) {
+      setCurrentStep(i);
+      // Give user a short moment to adjust pose between captures.
+      await sleep(i === 0 ? 300 : 900);
+
+      const image = await captureImage();
+      if (!image) {
+        setIsAutoCapturing(false);
+        setCameraError("Failed to capture image. Please ensure camera is stable and try again.");
+        return;
       }
+
+      images.push(image);
+      setCapturedImages([...images]);
+    }
+
+    setCurrentStep(images.length);
+    setIsSubmitting(true);
+    stopCamera();
+    try {
+      await onCapture(images);
+    } finally {
+      setIsSubmitting(false);
+      setIsAutoCapturing(false);
     }
   };
 
@@ -161,12 +186,21 @@ const MultiCameraCapture: React.FC<MultiCameraCaptureProps> = ({ onCapture }) =>
           <p className="text-lg">
             Please look: <span className="font-bold">{directions[currentStep]}</span>
           </p>
+          <p className="text-sm text-gray-200">
+            {isAutoCapturing
+              ? `Capturing image ${currentStep + 1} of ${directions.length}...`
+              : `Ready to capture ${directions.length} photos in one click`}
+          </p>
           <button
-            onClick={captureImage}
-            disabled={isSubmitting}
+            onClick={handleAutoCapture}
+            disabled={isSubmitting || isAutoCapturing}
             className="px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
           >
-            {isSubmitting ? "Processing..." : "Capture"}
+            {isSubmitting
+              ? "Processing..."
+              : isAutoCapturing
+              ? "Capturing..."
+              : "Capture 5 Photos"}
           </button>
         </div>
       )}

@@ -58,13 +58,25 @@ students_collection = None
 attendance_collection = None
 
 try:
-    client = MongoClient(MONGODB_URI)
+    # Use shorter timeouts so DB failures do not block API responses for long periods.
+    client = MongoClient(
+        MONGODB_URI,
+        serverSelectionTimeoutMS=5000,
+        connectTimeoutMS=5000,
+        socketTimeoutMS=5000,
+    )
+    # Force initial connectivity check during startup.
+    client.admin.command("ping")
     db = client[DB_NAME]
     students_collection = db[COLLECTION_NAME]
     attendance_db = client["facerecognition_db"]
     attendance_collection = attendance_db["attendance_records"]
 except PyMongoError as e:
     logger.error(f"MongoDB initialization failed: {e}")
+    client = None
+    db = None
+    students_collection = None
+    attendance_collection = None
 
 # OPTIMIZED MODEL MANAGER CLASS
 class ModelManager:
@@ -169,12 +181,21 @@ def health_check():
     """Health check endpoint to verify model status"""
     model_status = model_manager.is_ready()
     model_health = model_manager.health_check()
-    is_healthy = model_status and model_health
+    db_connected = False
+    if client is not None:
+        try:
+            client.admin.command("ping")
+            db_connected = True
+        except PyMongoError:
+            db_connected = False
+
+    is_healthy = model_status and model_health and db_connected
 
     payload = {
         "status": "healthy" if is_healthy else "unhealthy",
         "models_ready": model_status,
         "models_healthy": model_health,
+        "db_connected": db_connected,
         "initialization_error": model_manager.initialization_error,
         "timestamp": time.time()
     }

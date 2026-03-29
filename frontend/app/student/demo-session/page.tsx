@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, ArrowLeft, Play, Square, User, BarChart3 } from "lucide-react";
 import CameraCapture, { FaceData } from "../../components/CameraCapture";
@@ -20,6 +20,13 @@ export default function DemoSession() {
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [lastResult, setLastResult] = useState<RecognizeResult | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLiveActive) {
+      setLastResult(null);
+      setProcessedImage(null);
+    }
+  }, [isLiveActive]);
 
   const handleRecognize = useCallback(async (dataUrl: string) => {
     if (!isLiveActive) return;
@@ -42,6 +49,8 @@ export default function DemoSession() {
       }
     } catch (err) {
       console.error(err);
+      setLastResult(null);
+      setProcessedImage(null);
     }
   }, [isLiveActive]);
 

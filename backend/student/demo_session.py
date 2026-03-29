@@ -114,6 +114,9 @@ embedding_cache = EmbeddingCache()
 
 def find_best_match_optimized(query_embedding, students_col, threshold=0.6):
     """Optimized database search with caching"""
+    if students_col is None:
+        return None, float('inf')
+
     cached_embeddings = embedding_cache.get_embeddings(students_col)
 
     if not cached_embeddings:
@@ -152,9 +155,8 @@ def demo_recognize_optimized():
 
     data = request.get_json()
     db = current_app.config.get("DB")
-    if db is None:
-        return jsonify({"success": False, "error": "Database unavailable"}), 503
-    students_col = db.students
+    db_available = db is not None
+    students_col = db.students if db_available else None
     threshold = float(current_app.config.get("THRESHOLD", "0.6"))
 
     image_b64 = data.get("image", "")
@@ -233,6 +235,7 @@ def demo_recognize_optimized():
     return jsonify({
         "success": True, 
         "faces": results, 
+        "db_available": db_available,
         "processing_time": round(total_time, 3),
         "detailed_timing": {
             "detection": round(detection_time, 3),

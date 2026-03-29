@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 import io
 import logging
+from pymongo.errors import PyMongoError
 
 student_registration_bp = Blueprint("student_registration", __name__)
 logger = logging.getLogger(__name__)
@@ -16,13 +17,22 @@ def read_image_from_bytes(b):
 def detect_faces_rgb(rgb_image, detector):
     detections = detector.detect_faces(rgb_image)
     faces = []
+    img_h, img_w = rgb_image.shape[:2]
     for d in detections:
         if d['confidence'] > 0.85:
             x, y, w, h = d['box']
-            x, y = max(0, x), max(0, y)
-            if w > 40 and h > 40:
-                face_rgb = rgb_image[y:y+h, x:x+w]
-                faces.append({'box': (x, y, w, h), 'face': face_rgb, 'confidence': d['confidence']})
+            if w <= 0 or h <= 0:
+                continue
+
+            # Clamp bounding box to image boundaries and skip invalid/empty crops.
+            x1, y1 = max(0, x), max(0, y)
+            x2, y2 = min(img_w, x + w), min(img_h, y + h)
+            crop_w, crop_h = x2 - x1, y2 - y1
+            if crop_w > 40 and crop_h > 40:
+                face_rgb = rgb_image[y1:y2, x1:x2]
+                if face_rgb.size == 0:
+                    continue
+                faces.append({'box': (x1, y1, crop_w, crop_h), 'face': face_rgb, 'confidence': d['confidence']})
     return faces
 
 def extract_embedding(face_rgb):
@@ -117,10 +127,22 @@ def register_student():
 @student_registration_bp.route('/api/students/count', methods=['GET'])
 def get_student_count():
     db = current_app.config.get("DB")
-    return jsonify({"success": True, "count": db.students.count_documents({})})
+    if db is None:
+        return jsonify({"success": False, "error": "Database unavailable"}), 503
+    try:
+        return jsonify({"success": True, "count": db.students.count_documents({})})
+    except PyMongoError as e:
+        logger.error(f"Count query failed: {e}")
+        return jsonify({"success": False, "error": "Database connection failed"}), 503
 
 @student_registration_bp.route('/api/students/departments', methods=['GET'])
 def get_departments():
     db = current_app.config.get("DB")
-    departments = db.students.distinct("department")
-    return jsonify({"success": True, "departments": departments, "count": len(departments)})
+    if db is None:
+        return jsonify({"success": False, "error": "Database unavailable"}), 503
+    try:
+        departments = db.students.distinct("department")
+        return jsonify({"success": True, "departments": departments, "count": len(departments)})
+    except PyMongoError as e:
+        logger.error(f"Departments query failed: {e}")
+        return jsonify({"success": False, "error": "Database connection failed"}), 503
