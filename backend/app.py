@@ -112,19 +112,23 @@ class ModelManager:
             self.detector = MTCNN()
             logger.info("MTCNN detector loaded successfully")
 
-            # 2. Import and pre-warm Facenet512 so model weights are downloaded
-            # at startup, not at request time (where a download failure breaks registration).
+            # 2. Import DeepFace and pre-warm Facenet512.
+            # Weights are baked into the Docker image so this should be fast.
+            # Best-effort: if it fails for any reason, log and continue.
             from deepface import DeepFace
-            logger.info("Pre-warming Facenet512 model (may download weights on first run)...")
-            _dummy = np.zeros((160, 160, 3), dtype=np.uint8)
-            DeepFace.represent(
-                _dummy,
-                model_name='Facenet512',
-                detector_backend='skip',
-                enforce_detection=False,
-            )
             self.deepface_ready = True
-            logger.info("Facenet512 model pre-warmed successfully")
+            logger.info("Pre-warming Facenet512 model from cached weights...")
+            try:
+                _dummy = np.zeros((160, 160, 3), dtype=np.uint8)
+                DeepFace.represent(
+                    _dummy,
+                    model_name='Facenet512',
+                    detector_backend='skip',
+                    enforce_detection=False,
+                )
+                logger.info("Facenet512 model pre-warmed successfully")
+            except Exception as warm_err:
+                logger.warning(f"Facenet512 pre-warm skipped (will load on first use): {warm_err}")
 
             self.models_ready = True
 

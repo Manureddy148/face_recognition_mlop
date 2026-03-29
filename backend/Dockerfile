@@ -16,13 +16,17 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download MTCNN and Facenet512 model weights during image build so they
+# never need network access at runtime (critical for Cloud Run containers).
+RUN python -c "import numpy as np; from mtcnn import MTCNN; from deepface import DeepFace; print('Downloading MTCNN...'); MTCNN(); print('Downloading Facenet512...'); DeepFace.represent(np.zeros((160,160,3),dtype='uint8'),model_name='Facenet512',detector_backend='skip',enforce_detection=False); print('All model weights ready')"
+
 # Copy application
 COPY . .
 
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# Health check - allow enough start-period for TF model loading
+HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=5 \
     CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Run with gunicorn. Cloud Run injects PORT (default 8080), so bind to it.
