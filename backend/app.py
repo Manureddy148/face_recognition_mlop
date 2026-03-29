@@ -160,14 +160,16 @@ def health_check():
     """Health check endpoint to verify model status"""
     model_status = model_manager.is_ready()
     model_health = model_manager.health_check()
+    is_healthy = model_status and model_health
 
-    return {
-        "status": "healthy" if model_status and model_health else "unhealthy",
+    payload = {
+        "status": "healthy" if is_healthy else "unhealthy",
         "models_ready": model_status,
         "models_healthy": model_health,
         "initialization_error": model_manager.initialization_error,
         "timestamp": time.time()
     }
+    return payload, (200 if is_healthy else 503)
 
 # Register blueprints
 app.register_blueprint(auth_bp)
