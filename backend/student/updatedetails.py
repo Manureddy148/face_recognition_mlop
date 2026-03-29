@@ -22,12 +22,12 @@ def get_students():
     try:
         # Get logged-in user's email from request headers or query params
         user_email = normalize_email(request.headers.get('X-User-Email') or request.args.get('user_email'))
-        user_type = request.headers.get('X-User-Type', 'student')
+        user_type = request.headers.get('X-User-Type', 'user')
         
         if not user_email:
             return jsonify({"success": False, "error": "User email required for authorization"}), 401
         
-        # For students: only show their own record
+        # Backward compatibility: if explicit student role, restrict to own record.
         if user_type == 'student':
             query = {"email": {'$regex': f'^{re.escape(user_email)}$', '$options': 'i'}}
             
@@ -60,12 +60,36 @@ def get_students():
                 "authorized_email": user_email,
                 "user_type": user_type
             })
-        else:
-            # For teachers, redirect to admin endpoint
-            return jsonify({
-                "success": False, 
-                "error": "Teachers should use /api/admin/students endpoint"
-            }), 400
+        # Unified login/default: return all students with optional filters.
+        query = {}
+        department = request.args.get('department', '')
+        year = request.args.get('year', '')
+        division = request.args.get('division', '')
+        search = request.args.get('search', '')
+        if department:
+            query['department'] = department
+        if year:
+            query['year'] = year
+        if division:
+            query['division'] = division
+        if search:
+            query['$or'] = [
+                {'studentName': {'$regex': search, '$options': 'i'}},
+                {'studentId': {'$regex': search, '$options': 'i'}},
+                {'email': {'$regex': search, '$options': 'i'}}
+            ]
+
+        students = list(students_col.find(query, {"embedding": 0}).sort('studentName', 1))
+        for student in students:
+            student['_id'] = str(student['_id'])
+
+        return jsonify({
+            "success": True,
+            "students": students,
+            "count": len(students),
+            "authorized_email": user_email,
+            "user_type": user_type
+        })
             
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -79,7 +103,7 @@ def get_student(student_id):
     try:
         # Get logged-in user's email and type
         user_email = normalize_email(request.headers.get('X-User-Email'))
-        user_type = request.headers.get('X-User-Type', 'student')
+        user_type = request.headers.get('X-User-Type', 'user')
         
         if not user_email:
             return jsonify({"success": False, "error": "User email required for authorization"}), 401
@@ -97,7 +121,7 @@ def get_student(student_id):
                     "success": False, 
                     "error": "Unauthorized: You can only view your own student record"
                 }), 403
-        elif user_type == 'teacher':
+        elif user_type in ('teacher', 'user'):
             # Teachers can view any student record
             pass
         else:
@@ -119,7 +143,7 @@ def update_student(student_id):
     try:
         # Get logged-in user's email and type
         user_email = normalize_email(request.headers.get('X-User-Email') or data.get('user_email'))
-        user_type = request.headers.get('X-User-Type', 'student')
+        user_type = request.headers.get('X-User-Type', 'user')
         
         if not user_email:
             return jsonify({"success": False, "error": "User email required for authorization"}), 401
@@ -145,7 +169,7 @@ def update_student(student_id):
                     "error": "Email cannot be changed for security reasons. Contact administrator."
                 }), 400
                 
-        elif user_type == 'teacher':
+        elif user_type in ('teacher', 'user'):
             # Teachers can update any student record
             # Check if new email conflicts with existing one (if changed)
             if data.get('email') and normalize_email(data.get('email')) != normalize_email(student.get('email')):
@@ -213,7 +237,7 @@ def delete_student(student_id):
     try:
         # Get logged-in user's email and type
         user_email = normalize_email(request.headers.get('X-User-Email'))
-        user_type = request.headers.get('X-User-Type', 'student')
+        user_type = request.headers.get('X-User-Type', 'user')
         
         if not user_email:
             return jsonify({"success": False, "error": "User email required for authorization"}), 401
@@ -230,7 +254,7 @@ def delete_student(student_id):
                     "success": False, 
                     "error": "Unauthorized: You can only delete your own student record"
                 }), 403
-        elif user_type == 'teacher':
+        elif user_type in ('teacher', 'user'):
             # Teachers can delete any student record
             pass
         else:

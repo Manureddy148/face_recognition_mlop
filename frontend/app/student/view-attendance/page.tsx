@@ -10,9 +10,10 @@ interface AttendanceRecord {
   studentId: string;
   studentName: string;
   date: string;
+  subject: string;
   time: string;
   status: "present" | "absent";
-  confidence: number;
+  confidence: number | null;
 }
 
 export default function ViewAttendance() {
@@ -67,9 +68,10 @@ export default function ViewAttendance() {
           studentId: record.studentId || record.student_id || "-",
           studentName: record.studentName || record.student_name || "-",
           date: record.date || data.date || selectedDate,
+          subject: record.subject || filterSubject || "-",
           time: record.markedAt || record.time || "-",
           status: record.status || "present",
-          confidence: record.confidence || 0,
+          confidence: typeof record.confidence === "number" ? record.confidence : null,
         }));
         setAttendanceData(mappedData);
         setStats(data.stats);
@@ -278,6 +280,9 @@ export default function ViewAttendance() {
                       Date
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Subject
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Time
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -301,6 +306,9 @@ export default function ViewAttendance() {
                         {new Date(record.date).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {record.subject}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {record.time}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -315,7 +323,7 @@ export default function ViewAttendance() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.confidence}%
+                        {record.confidence !== null ? `${record.confidence}%` : "-"}
                       </td>
                     </tr>
                   ))}

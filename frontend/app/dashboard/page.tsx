@@ -9,9 +9,9 @@ import {
   BarChart3, 
   LogOut, 
   User,
-  Menu,
-  X
+  Play
 } from "lucide-react";
+import { logoutUser } from "@/app/lib/auth";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -21,7 +21,6 @@ export default function DashboardPage() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [username, setUsername] = useState("");
   const [userEmail, setUserEmail] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeCard, setActiveCard] = useState<number | null>(null);
 
   useEffect(() => {
@@ -51,21 +50,8 @@ export default function DashboardPage() {
   }, [router]);
 
   const handleLogout = async () => {
-    try {
-      await fetch(`${apiBase}/api/logout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      console.log("Logout API call failed, but continuing with local logout");
-    }
-
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("username");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userId");
-    
-    router.push("/");
+    await logoutUser(apiBase);
+    router.push("/signin");
   };
 
   const studentManagementOptions = [
@@ -98,6 +84,16 @@ export default function DashboardPage() {
       bgColor: "bg-purple-50 hover:bg-purple-100",
       borderColor: "border-purple-200 hover:border-purple-300",
       iconBg: "bg-purple-500"
+    },
+    {
+      title: "Start Face Recognition",
+      description: "Start attendance capture for a selected class and subject",
+      icon: <Play className="w-7 h-7" />,
+      path: "/teacher/start-session",
+      color: "from-fuchsia-500 to-violet-600",
+      bgColor: "bg-fuchsia-50 hover:bg-fuchsia-100",
+      borderColor: "border-fuchsia-200 hover:border-fuchsia-300",
+      iconBg: "bg-fuchsia-500"
     },
     {
       title: "Attendance Records",
@@ -141,19 +137,12 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             {/* Left Section */}
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6 text-slate-700" /> : <Menu className="w-6 h-6 text-slate-700" />}
-              </button>
-              
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
                   <User className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Student Dashboard</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
                   <p className="text-slate-600 text-sm font-medium">Welcome back, {username}</p>
                   {userEmail && <p className="text-slate-500 text-xs">{userEmail}</p>}
                 </div>
@@ -174,36 +163,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden bg-white/95 backdrop-blur-lg border-b border-slate-200 shadow-lg">
-          <div className="px-4 sm:px-6 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {studentManagementOptions.map((option, index) => (
-                <div
-                  key={index}
-                  onClick={() => {
-                    router.push(option.path);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-md ${option.bgColor} ${option.borderColor}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg bg-gradient-to-br ${option.color} shadow-sm`}>
-                      <div className="text-white">
-                        {option.icon}
-                      </div>
-                    </div>
-                    <span className="text-slate-700 font-semibold text-sm">{option.title}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content - Student Management Tools Only */}
+      {/* Main Content */}
       <main className="px-4 sm:px-6 py-8">
         <div className="max-w-7xl mx-auto">
           {/* Welcome Message */}
@@ -217,12 +177,12 @@ export default function DashboardPage() {
               Student Management Hub
             </h2>
             <p className="text-slate-600 text-lg max-w-2xl mx-auto leading-relaxed">
-              Streamline student operations with our comprehensive face recognition and attendance management system
+              Use one place for registration, recognition, attendance sessions, and attendance records.
             </p>
           </div>
 
-          {/* Student Management Tools Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Tools Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
             {studentManagementOptions.map((option, index) => (
               <div
                 key={index}

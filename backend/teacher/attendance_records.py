@@ -77,7 +77,28 @@ def extract_embedding_optimized(face_rgb):
             detector_backend="skip",
             enforce_detection=False  # Skip additional detection for speed
         )
-        return np.array(rep[0]["embedding"], dtype=np.float32)  # Use float32 for speed
+        if isinstance(rep, dict) and "embedding" in rep:
+            emb = np.array(rep["embedding"], dtype=np.float32)
+        elif isinstance(rep, list):
+            if not rep:
+                return None
+            first = rep[0]
+            if isinstance(first, dict) and "embedding" in first:
+                emb = np.array(first["embedding"], dtype=np.float32)
+            elif isinstance(first, (list, tuple, np.ndarray)):
+                emb = np.array(first, dtype=np.float32)
+            elif isinstance(first, (int, float, np.integer, np.floating)):
+                emb = np.array(rep, dtype=np.float32)
+            else:
+                return None
+        elif isinstance(rep, np.ndarray):
+            emb = rep.astype(np.float32)
+        else:
+            return None
+
+        if emb.ndim == 1 and emb.shape[0] == 512 and np.isfinite(emb).all():
+            return emb
+        return None
         
     except Exception as e:
         logger.error(f"Embedding extraction error: {e}")
@@ -185,6 +206,11 @@ def create_session():
         return jsonify({"error": "Database unavailable"}), 503
     students_col = db.students
 
+    required = ["date", "subject", "department", "year", "division"]
+    missing = [k for k in required if not data.get(k)]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
     # Build base session document
     session_doc = {
         "date": data.get("date"),
@@ -224,7 +250,15 @@ def create_session():
 
     collection = get_attendance_collection()
     session_id = collection.insert_one(session_doc).inserted_id
-    return jsonify({"session_id": str(session_id), "students_count": len(session_doc["students"])})
+    return jsonify({
+        "session_id": str(session_id),
+        "students_count": len(session_doc["students"]),
+        "date": session_doc["date"],
+        "subject": session_doc["subject"],
+        "department": session_doc["department"],
+        "year": session_doc["year"],
+        "division": session_doc["division"],
+    })
 
 @attendance_session_bp.route("/end_session", methods=["POST"])
 def end_session():
@@ -457,6 +491,13 @@ def mark_attendance_with_duplicate_prevention():
             "message": "Recognition processed", 
             "faces": results, 
             "processing_time": round(processing_time, 3),
+            "session_context": {
+                "date": session_doc.get("date"),
+                "subject": session_doc.get("subject"),
+                "department": session_doc.get("department"),
+                "year": session_doc.get("year"),
+                "division": session_doc.get("division"),
+            },
             "session_info": {
                 "session_id": session_id,
                 "total_present_now": len(already_present_students),

@@ -62,7 +62,7 @@ export default function DemoSessionPage() {
 
   const handleRecognize = useCallback(
     async (imageDataUrl: string) => {
-      // Build payload: include session_id when available, otherwise include filters for demo recognition
+      // Build payload for the active attendance session.
       const payload: any = { image: imageDataUrl };
       if (sessionId) payload.session_id = sessionId;
       else {
@@ -128,7 +128,7 @@ export default function DemoSessionPage() {
             {/* Left Section */}
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.push("/teacher/dashboard")}
+                onClick={() => router.push("/dashboard")}
                 className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors group"
               >
                 <ArrowLeft className="w-6 h-6 text-gray-600 group-hover:text-gray-800 transition-colors" />
@@ -182,23 +182,8 @@ export default function DemoSessionPage() {
                 </button>
               )}
 
-              {/* Demo recognition: start without creating a session */}
-              {!sessionId && !recognitionStarted && (
-                <button
-                  onClick={() => {
-                    setSessionActive(false);
-                    setRecognitionStarted(true);
-                    setStatus("Starting demo recognition...");
-                  }}
-                  className="px-6 py-3 rounded-lg font-semibold bg-green-100 hover:bg-green-200 text-green-700 border-2 border-green-300 transition-all duration-300 flex items-center justify-center gap-3 hover:shadow-md hover:-translate-y-0.5"
-                >
-                  <Play className="w-5 h-5" />
-                  Start Demo Recognition
-                </button>
-              )}
-
               <button
-                onClick={() => router.push("/teacher/dashboard")}
+                onClick={() => router.push("/dashboard")}
                 className="px-6 py-3 rounded-lg font-semibold bg-blue-100 hover:bg-blue-200 text-blue-700 border-2 border-blue-300 transition-all duration-300 flex items-center justify-center gap-3 hover:shadow-md hover:-translate-y-0.5"
               >
                 <ArrowLeft className="w-5 h-5" />
