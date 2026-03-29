@@ -3,8 +3,6 @@ name: Deploy to Cloud Run
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:  # Manual trigger
 
 env:
@@ -13,6 +11,8 @@ env:
   REGION: us-central1
   BACKEND_SERVICE: attendance-backend
   FRONTEND_SERVICE: attendance-frontend
+  SERVICE_ACCOUNT: attendance-sa@project-e553cc0c-7d4a-4519-ade.iam.gserviceaccount.com
+  WORKLOAD_IDENTITY_PROVIDER: projects/149325054934/locations/global/workloadIdentityPools/github-pool/providers/github-provider
 
 jobs:
   deploy:
@@ -20,7 +20,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -29,17 +28,28 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: 'projects/149325054934/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'attendance-sa@project-e553cc0c-7d4a-4519-ade.iam.gserviceaccount.com'
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
           token_format: 'access_token'
           access_token_lifetime: '3600s'
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
 
       - name: Configure Docker for GCP
         run: |
           gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Validate required secrets
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: |
+          if [ -z "$MONGODB_URI" ]; then
+            echo "MONGODB_URI secret is missing or empty. Configure it in GitHub repository secrets."
+            exit 1
+          fi
 
       - name: Build backend Docker image
         run: |
@@ -48,31 +58,10 @@ jobs:
             -f backend/Dockerfile \
             backend/
 
-      - name: Build frontend Docker image
-        run: |
-          docker build -t us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:${{ github.sha }} \
-            -t us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:latest \
-            -f frontend/Dockerfile \
-            frontend/
-
       - name: Push backend image to Artifact Registry
         run: |
           docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.BACKEND_SERVICE }}:${{ github.sha }}
           docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.BACKEND_SERVICE }}:latest
-
-      - name: Push frontend image to Artifact Registry
-        run: |
-          docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:${{ github.sha }}
-          docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:latest
-
-      - name: Validate MongoDB secret
-        env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
-        run: |
-          if [ -z "$MONGODB_URI" ]; then
-            echo "MONGODB_URI secret is missing or empty. Configure it in GitHub repository secrets."
-            exit 1
-          fi
 
       - name: Deploy backend to Cloud Run
         run: |
@@ -85,7 +74,8 @@ jobs:
             --timeout 600 \
             --max-instances 10 \
             --set-env-vars="FIRESTORE_PROJECT_ID=${{ env.PROJECT_ID }},FLASK_ENV=production,MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            --service-account=attendance-sa@project-e553cc0c-7d4a-4519-ade.iam.gserviceaccount.com
+            --service-account=${{ env.SERVICE_ACCOUNT }} \
+            --allow-unauthenticated
 
       - name: Get backend service URL
         id: backend_url
@@ -93,6 +83,20 @@ jobs:
           BACKEND_URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} --region ${{ env.REGION }} --format='value(status.url)')
           echo "url=$BACKEND_URL" >> $GITHUB_OUTPUT
           echo "Backend URL: $BACKEND_URL"
+
+      - name: Build frontend Docker image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=${{ steps.backend_url.outputs.url }} \
+            -t us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:${{ github.sha }} \
+            -t us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:latest \
+            -f frontend/Dockerfile \
+            frontend/
+
+      - name: Push frontend image to Artifact Registry
+        run: |
+          docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:${{ github.sha }}
+          docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/attendance/${{ env.FRONTEND_SERVICE }}:latest
 
       - name: Deploy frontend to Cloud Run
         run: |
@@ -104,7 +108,7 @@ jobs:
             --cpu 1 \
             --max-instances 10 \
             --set-env-vars="NEXT_PUBLIC_API_URL=${{ steps.backend_url.outputs.url }}" \
-            --service-account=attendance-sa@project-e553cc0c-7d4a-4519-ade.iam.gserviceaccount.com \
+            --service-account=${{ env.SERVICE_ACCOUNT }} \
             --allow-unauthenticated
 
       - name: Get frontend service URL
@@ -136,18 +140,6 @@ jobs:
           echo ""
           echo "Testing frontend accessibility..."
           curl -fsSI --max-time 30 ${{ steps.frontend_url.outputs.url }}
-
-      - name: Comment PR with deployment URLs
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🚀 Deployment Preview\n\n📊 **Backend Service**: ${{ steps.backend_url.outputs.url }}\n🎨 **Frontend Service**: ${{ steps.frontend_url.outputs.url }}\n\n✅ Deployment completed!`
-            })
 
       - name: Save deployment info
         run: |

@@ -10,6 +10,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-central1
+  SERVICE_ACCOUNT: attendance-sa@project-e553cc0c-7d4a-4519-ade.iam.gserviceaccount.com
+  WORKLOAD_IDENTITY_PROVIDER: projects/149325054934/locations/global/workloadIdentityPools/github-pool/providers/github-provider
 
 jobs:
   backup:
@@ -19,24 +21,24 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_lifetime: 3600s
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id: ${{ env.PROJECT_ID }}
 
       - name: Create Firestore backup
         run: |
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           gcloud firestore databases backup create \
-            --database=default \
+            --database='(default)' \
             --location=us-central1 \
             --display-name="backup_${TIMESTAMP}"
           echo "✅ Firestore backup created: backup_${TIMESTAMP}"
