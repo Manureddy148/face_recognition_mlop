@@ -7,8 +7,6 @@ import {
   Mail, 
   Lock, 
   User, 
-  GraduationCap, 
-  BookOpen,
   ArrowLeft,
   Home,
   LogIn
@@ -23,7 +21,6 @@ export default function SignUpPage() {
     username: "",
     email: "",
     password: "",
-    userType: "student"
   });
   const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -107,40 +104,6 @@ export default function SignUpPage() {
           {/* Sign Up Form */}
           <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 sm:p-8 border-2 border-slate-200 shadow-xl mt-8">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* User Type Selection */}
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <label className="block text-slate-700 text-sm font-semibold mb-3 flex items-center gap-2">
-                  <User className="w-4 h-4 text-purple-600" />
-                  Sign up as:
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, userType: "student" }))}
-                    className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-2 text-sm font-semibold hover:scale-105 ${
-                      formData.userType === "student" 
-                        ? "bg-blue-50 border-blue-300 text-blue-700 shadow-lg" 
-                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    <GraduationCap className="w-4 h-4" />
-                    Student
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, userType: "teacher" }))}
-                    className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-2 text-sm font-semibold hover:scale-105 ${
-                      formData.userType === "teacher" 
-                        ? "bg-emerald-50 border-emerald-300 text-emerald-700 shadow-lg" 
-                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    Teacher
-                  </button>
-                </div>
-              </div>
-
               {/* Username Input */}
               <div>
                 <label className="block text-slate-700 text-sm font-semibold mb-2">
@@ -202,11 +165,7 @@ export default function SignUpPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 shadow-lg hover:shadow-xl ${
-                  formData.userType === 'teacher' 
-                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700' 
-                    : 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700'
-                } text-white`}
+                className="w-full py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 shadow-lg hover:shadow-xl bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white"
               >
                 {isLoading ? (
                   <>
@@ -216,7 +175,7 @@ export default function SignUpPage() {
                 ) : (
                   <>
                     <UserPlus className="w-5 h-5" />
-                    Create {formData.userType === 'teacher' ? 'Teacher' : 'Student'} Account
+                      Create Account
                   </>
                 )}
               </button>

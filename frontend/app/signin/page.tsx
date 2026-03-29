@@ -6,9 +6,6 @@ import {
   LogIn, 
   Mail, 
   Lock, 
-  User, 
-  GraduationCap, 
-  BookOpen,
   Eye,
   EyeOff,
   UserPlus
@@ -22,7 +19,6 @@ export default function SignInPage() {
   const [formData, setFormData] = useState({ 
     email: "", 
     password: "",
-    userType: "student" // Default to student
   });
   const [status, setStatus] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -44,7 +40,6 @@ export default function SignInPage() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          userType: formData.userType
         }),
       });
 
@@ -56,30 +51,23 @@ export default function SignInPage() {
         // Store login state and user info in localStorage
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("userEmail", formData.email);
-        localStorage.setItem("userType", formData.userType); // ✅ fixed consistency
+        localStorage.setItem("userType", "user");
         
         if (data.user) {
           localStorage.setItem("username", data.user.username || data.user.name || "");
           localStorage.setItem("userId", data.user._id || "");
 
-          // Store teacher-specific info if applicable
-          if (formData.userType === "teacher" && data.user.employeeId) {
-            localStorage.setItem("employeeId", data.user.employeeId);
-          }
-
-          // Store student-specific info if applicable  
-          if (formData.userType === "student" && data.user.studentId) {
+          if (data.user.studentId) {
             localStorage.setItem("studentId", data.user.studentId);
+          }
+          if (data.user.employeeId) {
+            localStorage.setItem("employeeId", data.user.employeeId);
           }
         }
 
-        // Redirect to appropriate dashboard based on user type
+        // Single login model: always route to one dashboard.
         setTimeout(() => {
-          if (formData.userType === "teacher") {
-            router.push("/teacher/dashboard");
-          } else {
-            router.push("/dashboard");
-          }
+          router.push("/dashboard");
         }, 1000);
       } else {
         setStatus(data.error || "Invalid credentials");
@@ -114,40 +102,6 @@ export default function SignInPage() {
         {/* Sign In Form */}
         <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 sm:p-8 border-2 border-slate-200 shadow-xl">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* User Type Selection */}
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <label className="block text-slate-700 text-sm font-semibold mb-3 flex items-center gap-2">
-                <User className="w-4 h-4 text-blue-600" />
-                Sign in as:
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, userType: "student" }))}
-                  className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-2 text-sm font-semibold hover:scale-105 ${
-                    formData.userType === "student" 
-                      ? "bg-blue-50 border-blue-300 text-blue-700 shadow-lg" 
-                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                  }`}
-                >
-                  <GraduationCap className="w-4 h-4" />
-                  Student
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, userType: "teacher" }))}
-                  className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-2 text-sm font-semibold hover:scale-105 ${
-                    formData.userType === "teacher" 
-                      ? "bg-emerald-50 border-emerald-300 text-emerald-700 shadow-lg" 
-                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                  }`}
-                >
-                  <BookOpen className="w-4 h-4" />
-                  Teacher
-                </button>
-              </div>
-            </div>
-
             {/* Email Input */}
             <div>
               <label className="block text-slate-700 text-sm font-semibold mb-2">
@@ -158,7 +112,7 @@ export default function SignInPage() {
                 <input
                   name="email"
                   type="email"
-                  placeholder={`Enter your ${formData.userType} email`}
+                  placeholder="Enter your email"
                   required
                   value={formData.email}
                   onChange={handleChange}
@@ -197,11 +151,7 @@ export default function SignInPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 shadow-lg hover:shadow-xl ${
-                formData.userType === 'teacher' 
-                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700' 
-                  : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
-              } text-white`}
+              className="w-full py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 shadow-lg hover:shadow-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
             >
               {isLoading ? (
                 <>
@@ -211,7 +161,7 @@ export default function SignInPage() {
               ) : (
                 <>
                   <LogIn className="w-5 h-5" />
-                  Sign In as {formData.userType === 'teacher' ? 'Teacher' : 'Student'}
+                  Sign In
                 </>
               )}
             </button>

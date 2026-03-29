@@ -123,7 +123,7 @@ export default function DemoSession() {
                 ) : (
                   <>
                     <Play className="w-5 h-5" />
-                    Start Demo
+                    Start Face Recognition
                   </>
                 )}
               </button>
@@ -197,7 +197,7 @@ export default function DemoSession() {
                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                         <Play className="w-8 h-8 text-slate-600" />
                       </div>
-                      <p className="text-white font-semibold">Click Start Demo to begin</p>
+                      <p className="text-white font-semibold">Click Start Face Recognition to begin</p>
                     </div>
                   </div>
                 )}
@@ -279,7 +279,7 @@ export default function DemoSession() {
                   <ul className="text-slate-600 text-sm space-y-2">
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                      Click "Start Demo" to begin face recognition
+                      Click "Start Face Recognition" to begin
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>

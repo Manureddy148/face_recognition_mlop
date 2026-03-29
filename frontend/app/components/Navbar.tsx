@@ -3,36 +3,30 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { logoutUser } from "@/app/utils/auth";
 
 export default function Navbar() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
-  const [userType, setUserType] = useState("");
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://attendance-backend-aqwtwzewvq-uc.a.run.app";
 
   useEffect(() => {
     // Check login status
     const loggedIn = localStorage.getItem("isLoggedIn");
     const storedUsername = localStorage.getItem("username");
-    const storedUserType = localStorage.getItem("userType");
 
     setIsLoggedIn(!!loggedIn);
     setUsername(storedUsername || "");
-    setUserType(storedUserType || "");
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("username");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("userType");
-
+  const handleLogout = async () => {
+    await logoutUser(apiBase);
     setIsLoggedIn(false);
     setUsername("");
-    setUserType("");
-
-    router.push("/");
+    router.push("/signin");
   };
 
   return (
@@ -52,22 +46,12 @@ export default function Navbar() {
                 Dashboard
               </Link>
 
-              {userType === "teacher" && (
-                <Link href="/teacher/dashboard" className="hover:text-green-400 transition-colors">
-                  Teacher Panel
-                </Link>
-              )}
-
-              {userType === "student" && (
-                <>
-                  <Link href="/student/registrationform" className="hover:text-blue-400 transition-colors">
-                    Register Face
-                  </Link>
-                  <Link href="/student/updatedetails" className="hover:text-blue-400 transition-colors">
-                    Update Profile
-                  </Link>
-                </>
-              )}
+              <Link href="/student/registrationform" className="hover:text-blue-400 transition-colors">
+                Register Face
+              </Link>
+              <Link href="/student/updatedetails" className="hover:text-blue-400 transition-colors">
+                Update Profile
+              </Link>
 
               <Link href="/student/demo-session" className="hover:text-purple-400 transition-colors">
                 Demo
@@ -101,15 +85,6 @@ export default function Navbar() {
             <>
               <span className="text-sm text-gray-300">
                 Hello, {username}
-                {userType && (
-                  <span
-                    className={`ml-1 px-2 py-1 text-xs rounded ${
-                      userType === "teacher" ? "bg-green-600" : "bg-blue-600"
-                    }`}
-                  >
-                    {userType}
-                  </span>
-                )}
               </span>
               <button
                 onClick={handleLogout}
@@ -134,14 +109,6 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <div className="md:hidden">
-          <button className="text-gray-300 hover:text-white">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
       </div>
     </nav>
   );

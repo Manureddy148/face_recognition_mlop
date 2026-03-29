@@ -77,7 +77,28 @@ def extract_embedding_optimized(face_rgb):
             detector_backend="skip",
             enforce_detection=False  # Skip additional detection for speed
         )
-        return np.array(rep[0]["embedding"], dtype=np.float32)  # Use float32 for speed
+        if isinstance(rep, dict) and "embedding" in rep:
+            emb = np.array(rep["embedding"], dtype=np.float32)
+        elif isinstance(rep, list):
+            if not rep:
+                return None
+            first = rep[0]
+            if isinstance(first, dict) and "embedding" in first:
+                emb = np.array(first["embedding"], dtype=np.float32)
+            elif isinstance(first, (list, tuple, np.ndarray)):
+                emb = np.array(first, dtype=np.float32)
+            elif isinstance(first, (int, float, np.integer, np.floating)):
+                emb = np.array(rep, dtype=np.float32)
+            else:
+                return None
+        elif isinstance(rep, np.ndarray):
+            emb = rep.astype(np.float32)
+        else:
+            return None
+
+        if emb.ndim == 1 and emb.shape[0] == 512 and np.isfinite(emb).all():
+            return emb
+        return None
         
     except Exception as e:
         logger.error(f"Embedding extraction error: {e}")
@@ -185,6 +206,11 @@ def create_session():
         return jsonify({"error": "Database unavailable"}), 503
     students_col = db.students
 
+    required = ["date", "subject", "department", "year", "division"]
+    missing = [k for k in required if not data.get(k)]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
     # Build base session document
     session_doc = {
         "date": data.get("date"),
@@ -224,7 +250,15 @@ def create_session():
 
     collection = get_attendance_collection()
     session_id = collection.insert_one(session_doc).inserted_id
-    return jsonify({"session_id": str(session_id), "students_count": len(session_doc["students"])})
+    return jsonify({
+        "session_id": str(session_id),
+        "students_count": len(session_doc["students"]),
+        "date": session_doc["date"],
+        "subject": session_doc["subject"],
+        "department": session_doc["department"],
+        "year": session_doc["year"],
+        "division": session_doc["division"],
+    })
 
 @attendance_session_bp.route("/end_session", methods=["POST"])
 def end_session():
@@ -457,6 +491,13 @@ def mark_attendance_with_duplicate_prevention():
             "message": "Recognition processed", 
             "faces": results, 
             "processing_time": round(processing_time, 3),
+            "session_context": {
+                "date": session_doc.get("date"),
+                "subject": session_doc.get("subject"),
+                "department": session_doc.get("department"),
+                "year": session_doc.get("year"),
+                "division": session_doc.get("division"),
+            },
             "session_info": {
                 "session_id": session_id,
                 "total_present_now": len(already_present_students),
@@ -468,84 +509,6 @@ def mark_attendance_with_duplicate_prevention():
     except Exception as e:
         logger.error(f"Attendance error: {e}")
         return jsonify({"error": str(e)}), 500
-
-    """Finalize an attendance session with enhanced logging"""
-    data = request.get_json()
-    session_id = data.get("session_id")
-    if not session_id:
-        return jsonify({"error": "Missing session_id"}), 400
-
-    try:
-        collection = get_attendance_collection()
-        db = current_app.config.get("DB")
-        students_col = db.students
-
-        session_doc = collection.find_one({"_id": ObjectId(session_id)})
-        if not session_doc:
-            return jsonify({"error": "Session not found"}), 404
-
-        # Build set of present student ids
-        present_students = set(
-            s.get("student_id") for s in session_doc.get("students", []) 
-            if s.get("present")
-        )
-
-        # Get all students in that class
-        student_filter = {}
-        if session_doc.get("department"): student_filter["department"] = session_doc.get("department")
-        if session_doc.get("year"): student_filter["year"] = session_doc.get("year")
-        if session_doc.get("division"): student_filter["division"] = session_doc.get("division")
-
-        all_students = list(students_col.find(student_filter)) if student_filter else []
-        
-        # Mark absent students
-        absent_count = 0
-        for s in all_students:
-            sid = s.get("studentId") or s.get("student_id")
-            sname = s.get("studentName") or s.get("student_name")
-            
-            if sid not in present_students:
-                # Update existing entry or create new absent entry
-                updated = collection.update_one(
-                    {"_id": ObjectId(session_id), "students.student_id": sid},
-                    {"$set": {"students.$.present": False, "students.$.marked_at": None}}
-                )
-                
-                if updated.matched_count == 0:
-                    # No existing entry, add new absent entry
-                    collection.update_one(
-                        {"_id": ObjectId(session_id)},
-                        {"$push": {
-                            "students": {
-                                "student_id": sid, 
-                                "student_name": sname, 
-                                "present": False, 
-                                "marked_at": None
-                            }
-                        }}
-                    )
-                absent_count += 1
-
-        # Mark session as finalized
-        collection.update_one(
-            {"_id": ObjectId(session_id)}, 
-            {"$set": {"finalized": True, "ended_at": datetime.now()}}
-        )
-
-        logger.info(f"Session finalized: {len(present_students)} present, {absent_count} absent")
-
-        return jsonify({
-            "success": True,
-            "statistics": {
-                "present_count": len(present_students),
-                "absent_count": absent_count,
-                "total_students": len(all_students)
-            }
-        })
-
-    except Exception as e:
-        logger.error(f"Error ending session: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
 
 # Health check for attendance models
 @attendance_session_bp.route("/models/status", methods=["GET"])

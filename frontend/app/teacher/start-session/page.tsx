@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, ArrowLeft, Play, Square, User, Calendar, BookOpen, GraduationCap, Users, CheckCircle2 } from "lucide-react";
+import { Camera, ArrowLeft, Play, Square, User, Calendar, BookOpen, Users, CheckCircle2 } from "lucide-react";
 import CameraCapture, { FaceData } from "../../components/CameraCapture";
 
 export default function DemoSessionPage() {
@@ -49,7 +49,7 @@ export default function DemoSessionPage() {
       const data = await res.json();
       if (data.session_id) {
         setSessionId(data.session_id);
-        setStatus("✅ Session created! Click Start Recognition.");
+        setStatus("✅ Session created! Click Start Face Recognition.");
         setSessionActive(true);
       } else {
         setStatus("❌ Failed to create session");
@@ -62,15 +62,12 @@ export default function DemoSessionPage() {
 
   const handleRecognize = useCallback(
     async (imageDataUrl: string) => {
-      // Build payload: include session_id when available, otherwise include filters for demo recognition
-      const payload: any = { image: imageDataUrl };
-      if (sessionId) payload.session_id = sessionId;
-      else {
-        // include optional filters from the form for candidate narrowing
-        if (form.department) payload.department = form.department;
-        if (form.year) payload.year = form.year;
-        if (form.division) payload.division = form.division;
+      if (!sessionId) {
+        setStatus("❌ Create a session first before starting recognition");
+        return;
       }
+
+      const payload = { image: imageDataUrl, session_id: sessionId };
 
       try {
         const res = await fetch(`${apiBase}/api/attendance/real-mark`, {
@@ -99,12 +96,16 @@ export default function DemoSessionPage() {
         setFacesData([]);
       }
     },
-    [sessionId, form]
+    [sessionId]
   );
 
   const handleStartRecognition = () => {
+    if (!sessionId) {
+      setStatus("❌ Create a session first before starting recognition");
+      return;
+    }
     setRecognitionStarted(true);
-    setStatus("Starting live recognition...");
+    setStatus("Starting face recognition for attendance...");
   };
 
   const handleStopRecognition = () => {
@@ -128,7 +129,7 @@ export default function DemoSessionPage() {
             {/* Left Section */}
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.push("/teacher/dashboard")}
+                onClick={() => router.push("/dashboard")}
                 className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors group"
               >
                 <ArrowLeft className="w-6 h-6 text-gray-600 group-hover:text-gray-800 transition-colors" />
@@ -182,23 +183,8 @@ export default function DemoSessionPage() {
                 </button>
               )}
 
-              {/* Demo recognition: start without creating a session */}
-              {!sessionId && !recognitionStarted && (
-                <button
-                  onClick={() => {
-                    setSessionActive(false);
-                    setRecognitionStarted(true);
-                    setStatus("Starting demo recognition...");
-                  }}
-                  className="px-6 py-3 rounded-lg font-semibold bg-green-100 hover:bg-green-200 text-green-700 border-2 border-green-300 transition-all duration-300 flex items-center justify-center gap-3 hover:shadow-md hover:-translate-y-0.5"
-                >
-                  <Play className="w-5 h-5" />
-                  Start Demo Recognition
-                </button>
-              )}
-
               <button
-                onClick={() => router.push("/teacher/dashboard")}
+                onClick={() => router.push("/dashboard")}
                 className="px-6 py-3 rounded-lg font-semibold bg-blue-100 hover:bg-blue-200 text-blue-700 border-2 border-blue-300 transition-all duration-300 flex items-center justify-center gap-3 hover:shadow-md hover:-translate-y-0.5"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -400,13 +386,13 @@ export default function DemoSessionPage() {
                     <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Play className="w-10 h-10 text-gray-600" />
                     </div>
-                    <p className="text-gray-600 font-medium mb-4">Ready to start recognition</p>
+                    <p className="text-gray-600 font-medium mb-4">Ready to start face recognition</p>
                     <button
                       onClick={handleStartRecognition}
                       className="px-6 py-3 rounded-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white transition-all duration-300 flex items-center justify-center gap-3 mx-auto hover:shadow-lg hover:-translate-y-0.5"
                     >
                       <Play className="w-5 h-5" />
-                      Start Recognition
+                      Start Face Recognition
                     </button>
                   </div>
                 ) : (

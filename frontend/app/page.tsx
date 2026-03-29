@@ -1,11 +1,5 @@
 import HeroSection from '@/app/components/HeroSection';
 import FeaturesSection from "@/app/components/FeatureSection";
-import TestimonialsSection from "@/app/components/TestimonialsSection";
-import PricingSection from "@/app/components/PricingSection";
-import HowItWorksSection from "@/app/components/WorkSection";
-import AboutSection from "@/app/components/AboutSection";
-import ContactSection from "@/app/components/ContactSection";
-import Footer from "@/app/components/Footer";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -28,26 +22,6 @@ export default function HomePage() {
               Features
               <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
             </a>
-            <a href="#testimonials" className="text-slate-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105 relative group">
-              Testimonials
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-            </a>
-            <a href="#pricing" className="text-slate-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105 relative group">
-              Pricing
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-            </a>
-            <a href="#how-it-works" className="text-slate-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105 relative group">
-              How It Works
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-            </a>
-            <a href="#about" className="text-slate-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105 relative group">
-              About
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-            </a>
-            <a href="#contact" className="text-slate-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105 relative group">
-              Contact
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-            </a>
           </div>
           
           <div className="flex space-x-3">
@@ -68,7 +42,7 @@ export default function HomePage() {
       </nav>
 
       {/* Page Content with Smooth Animations */}
-      <div className="space-y-24 overflow-hidden">
+      <div className="space-y-24 overflow-hidden pb-12">
         {/* Hero Section */}
         <HeroSection />
         
@@ -79,44 +53,7 @@ export default function HomePage() {
           </div>
         </section>
         
-        {/* Testimonials Section */}
-        <section id="testimonials" className="relative bg-gradient-to-r from-slate-50 to-blue-50 py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <TestimonialsSection />
-          </div>
-        </section>
-        
-        {/* Pricing Section */}
-        <section id="pricing" className="relative">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <PricingSection />
-          </div>
-        </section>
-        
-        {/* How It Works Section */}
-        <section id="how-it-works" className="relative bg-gradient-to-r from-blue-50 to-indigo-50 py-20 rounded-3xl mx-4">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <HowItWorksSection />
-          </div>
-        </section>
-        
-        {/* About Section */}
-        <section id="about" className="relative">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <AboutSection />
-          </div>
-        </section>
-        
-        {/* Contact Section */}
-        <section id="contact" className="relative bg-gradient-to-r from-slate-50 to-blue-50 py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <ContactSection />
-          </div>
-        </section>
       </div>
-      
-      {/* Modern Footer */}
-      <Footer />
     </main>
   );
 }
