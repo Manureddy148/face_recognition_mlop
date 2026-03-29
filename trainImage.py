@@ -6,7 +6,7 @@ import datetime
 import time
 from PIL import ImageTk, Image
 
-
+#file run
 # Train Image
 def TrainImage(haarcasecade_path, trainimage_path, trainimagelabel_path, message,text_to_speech):
     recognizer = cv2.face.LBPHFaceRecognizer_create()
