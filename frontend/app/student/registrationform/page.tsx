@@ -136,7 +136,12 @@ export default function StudentRegistrationForm() {
         setStatus(`✅ Student registered successfully! ID: ${formData.studentId}`);
         setTimeout(() => router.replace(dashboardPath), 1200);
       } else {
-        setStatus(`❌ ${data.error}`);
+        let msg = `❌ ${data.error}`;
+        if (data.debug) {
+          const d = data.debug;
+          msg += ` | Decode: ${d.decode_failed ?? 0} failed, No-face: ${d.no_face_detected ?? 0}, Embed: ${d.embedding_failed ?? 0} failed, Accepted: ${d.accepted_embeddings ?? 0}/${d.total_images ?? 5}`;
+        }
+        setStatus(msg);
       }
     } catch (err) {
       setStatus("❌ Error connecting to server");

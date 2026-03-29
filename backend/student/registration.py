@@ -20,7 +20,7 @@ def detect_faces_rgb(rgb_image, detector):
     faces = []
     img_h, img_w = rgb_image.shape[:2]
     for d in detections:
-        if d['confidence'] > 0.75:  # lowered from 0.85 to accept more real faces
+        if d['confidence'] > 0.70:  # permissive threshold — catches rotated/profile poses
             x, y, w, h = d['box']
             if w <= 0 or h <= 0:
                 continue
@@ -29,29 +29,41 @@ def detect_faces_rgb(rgb_image, detector):
             x1, y1 = max(0, x), max(0, y)
             x2, y2 = min(img_w, x + w), min(img_h, y + h)
             crop_w, crop_h = x2 - x1, y2 - y1
-            if crop_w > 40 and crop_h > 40:
+            if crop_w > 30 and crop_h > 30:  # min 30×30 to accept smaller crops
                 face_rgb = rgb_image[y1:y2, x1:x2]
                 if face_rgb.size == 0:
                     continue
                 faces.append({'box': (x1, y1, crop_w, crop_h), 'face': face_rgb, 'confidence': d['confidence']})
     return faces
 
-def extract_embedding(face_rgb):
-    try:
-        face_pil = Image.fromarray(face_rgb.astype('uint8')).resize((160, 160))
-        face_array = np.array(face_pil)
-        from deepface import DeepFace
+def _embed_array(img_rgb):
+    """Resize to 160×160 and embed with Facenet512 (detector=skip)."""
+    from deepface import DeepFace
+    face_pil = Image.fromarray(img_rgb.astype('uint8')).resize((160, 160))
+    face_array = np.array(face_pil)
+    rep = DeepFace.represent(
+        face_array,
+        model_name='Facenet512',
+        detector_backend='skip',
+        enforce_detection=False,
+    )
+    return np.array(rep[0]['embedding'], dtype=np.float32)
 
-        rep = DeepFace.represent(
-            face_array,
-            model_name='Facenet512',
-            detector_backend='skip',
-            enforce_detection=False,
-        )
-        return np.array(rep[0]['embedding'], dtype=np.float32)
+def extract_embedding(face_rgb, full_rgb=None):
+    """Extract Facenet512 embedding from a face crop.
+    Falls back to the full frame when the crop embedding fails."""
+    try:
+        return _embed_array(face_rgb)
     except Exception as e:
-        logger.error(f"Embedding error: {e}\n{traceback.format_exc()}")
-        return None
+        logger.warning(f"Crop embedding failed ({e}), trying full-frame fallback")
+
+    if full_rgb is not None:
+        try:
+            return _embed_array(full_rgb)
+        except Exception as e:
+            logger.error(f"Full-frame embedding also failed: {e}\n{traceback.format_exc()}")
+
+    return None
 
 @student_registration_bp.route('/api/register-student', methods=['POST'])
 def register_student():
@@ -112,16 +124,24 @@ def register_student():
         # --- detect face(s) ---
         faces = detect_faces_rgb(rgb, detector)
         if len(faces) == 0:
-            logger.warning(f"Image {idx+1}: no face detected, skipping")
-            skipped.append(idx + 1)
-            no_face_detected += 1
+            # Fallback: embed the full frame directly (handles profile poses, small faces)
+            logger.warning(f"Image {idx+1}: no face detected by MTCNN, trying full-frame fallback")
+            emb = extract_embedding(rgb)  # treat whole frame as face
+            if emb is None:
+                logger.warning(f"Image {idx+1}: full-frame fallback also failed, skipping")
+                skipped.append(idx + 1)
+                no_face_detected += 1
+                continue
+            logger.info(f"Image {idx+1}: full-frame fallback succeeded")
+            embeddings.append(emb.tolist())
             continue
 
         # pick highest-confidence face
         best_face = max(faces, key=lambda f: f['confidence'])
+        logger.info(f"Image {idx+1}: face detected conf={best_face['confidence']:.2f} crop={best_face['box'][2]}×{best_face['box'][3]}")
 
-        # --- extract embedding ---
-        emb = extract_embedding(best_face['face'])
+        # --- extract embedding (with full-frame fallback) ---
+        emb = extract_embedding(best_face['face'], full_rgb=rgb)
         if emb is None:
             logger.warning(f"Image {idx+1}: embedding extraction failed, skipping")
             skipped.append(idx + 1)

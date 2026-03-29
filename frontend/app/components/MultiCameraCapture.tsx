@@ -92,7 +92,7 @@ const MultiCameraCapture: React.FC<MultiCameraCaptureProps> = ({ onCapture }) =>
     for (let i = 0; i < directions.length; i++) {
       setCurrentStep(i);
       // Give user a short moment to adjust pose between captures.
-      await sleep(i === 0 ? 300 : 900);
+      await sleep(i === 0 ? 300 : 1500);
 
       const image = await captureImage();
       if (!image) {
