@@ -19,6 +19,46 @@ def read_image_rgb(img_b64: str) -> np.ndarray:
     return np.array(img)
 
 
+def parse_embedding_output(rep) -> np.ndarray:
+    """Normalize DeepFace.represent outputs across versions to a 512-d float32 vector."""
+    if rep is None:
+        raise ValueError("represent returned None")
+
+    # Shape A: {'embedding': [...]} or {'embedding': np.ndarray}
+    if isinstance(rep, dict) and 'embedding' in rep:
+        emb = np.array(rep['embedding'], dtype=np.float32)
+        return emb
+
+    # Shape B/C: list output
+    if isinstance(rep, list):
+        if len(rep) == 0:
+            raise ValueError("represent returned empty list")
+
+        first = rep[0]
+
+        # B1: [{'embedding': [...]}]
+        if isinstance(first, dict) and 'embedding' in first:
+            emb = np.array(first['embedding'], dtype=np.float32)
+            return emb
+
+        # B2: [[...]]
+        if isinstance(first, (list, tuple, np.ndarray)):
+            emb = np.array(first, dtype=np.float32)
+            return emb
+
+        # B3: [0.12, -0.03, ...]  (flat embedding directly)
+        if isinstance(first, (int, float, np.integer, np.floating)):
+            emb = np.array(rep, dtype=np.float32)
+            return emb
+
+    # Shape D: np.ndarray directly
+    if isinstance(rep, np.ndarray):
+        emb = rep.astype(np.float32)
+        return emb
+
+    raise ValueError(f"unsupported represent output type: {type(rep).__name__}")
+
+
 def embed_image(rgb: np.ndarray) -> tuple:
     """
     Return (embedding_array, strategy_name) or (None, error_string).
@@ -42,11 +82,10 @@ def embed_image(rgb: np.ndarray) -> tuple:
             detector_backend='mtcnn',
             enforce_detection=False,
         )
-        if rep:
-            emb = np.array(rep[0]['embedding'], dtype=np.float32)
-            if emb.shape == (512,) and np.isfinite(emb).all():
-                logger.info("embed_image: strategy=mtcnn succeeded")
-                return emb, 'mtcnn'
+        emb = parse_embedding_output(rep)
+        if emb.ndim == 1 and emb.shape[0] == 512 and np.isfinite(emb).all():
+            logger.info("embed_image: strategy=mtcnn succeeded")
+            return emb, 'mtcnn'
     except Exception as exc:
         msg = f"mtcnn: {exc}"
         errors.append(msg)
@@ -60,11 +99,10 @@ def embed_image(rgb: np.ndarray) -> tuple:
             detector_backend='skip',
             enforce_detection=False,
         )
-        if rep:
-            emb = np.array(rep[0]['embedding'], dtype=np.float32)
-            if emb.shape == (512,) and np.isfinite(emb).all():
-                logger.info("embed_image: strategy=skip_full succeeded")
-                return emb, 'skip_full'
+        emb = parse_embedding_output(rep)
+        if emb.ndim == 1 and emb.shape[0] == 512 and np.isfinite(emb).all():
+            logger.info("embed_image: strategy=skip_full succeeded")
+            return emb, 'skip_full'
     except Exception as exc:
         msg = f"skip_full: {exc}"
         errors.append(msg)
@@ -79,11 +117,10 @@ def embed_image(rgb: np.ndarray) -> tuple:
             detector_backend='skip',
             enforce_detection=False,
         )
-        if rep:
-            emb = np.array(rep[0]['embedding'], dtype=np.float32)
-            if emb.shape == (512,) and np.isfinite(emb).all():
-                logger.info("embed_image: strategy=skip_160 succeeded")
-                return emb, 'skip_160'
+        emb = parse_embedding_output(rep)
+        if emb.ndim == 1 and emb.shape[0] == 512 and np.isfinite(emb).all():
+            logger.info("embed_image: strategy=skip_160 succeeded")
+            return emb, 'skip_160'
     except Exception as exc:
         msg = f"skip_160: {exc}"
         errors.append(msg)
@@ -169,35 +206,6 @@ def register_student():
             }
         }), 400
 
-
-@student_registration_bp.route('/api/debug/embed-test', methods=['POST'])
-def debug_embed_test():
-    """Diagnostic: run the full embed pipeline on a single image and return results."""
-    model_manager = current_app.config.get("MODEL_MANAGER")
-    if not model_manager or not model_manager.is_ready():
-        return jsonify({"ready": False, "deepface_error": getattr(model_manager, "deepface_error", "no manager")}), 503
-
-    data = request.get_json() or {}
-    img_b64 = data.get('image', '')
-    if not img_b64:
-        # If no image provided, run a synthetic test with a gray 640×480 image
-        rgb = np.full((480, 640, 3), 128, dtype=np.uint8)
-        img_b64 = None
-    else:
-        try:
-            rgb = read_image_rgb(img_b64)
-        except Exception as exc:
-            return jsonify({"success": False, "error": f"decode failed: {exc}"}), 400
-
-    emb, strategy = embed_image(rgb)
-    return jsonify({
-        "success": emb is not None,
-        "strategy": strategy,
-        "embedding_shape": list(emb.shape) if emb is not None else None,
-        "embedding_sample": emb[:5].tolist() if emb is not None else None,
-        "image_shape": list(rgb.shape),
-        "image_dtype": str(rgb.dtype),
-    })
     if skipped:
         logger.info(f"Registration: skipped images {skipped}, accepted {len(embeddings)} embeddings")
 
@@ -219,6 +227,35 @@ def debug_embed_test():
 
     result = students_col.insert_one(student_data)
     return jsonify({"success": True, "studentId": data['studentId'], "record_id": str(result.inserted_id)})
+
+
+@student_registration_bp.route('/api/debug/embed-test', methods=['POST'])
+def debug_embed_test():
+    """Diagnostic: run the full embed pipeline on a single image and return results."""
+    model_manager = current_app.config.get("MODEL_MANAGER")
+    if not model_manager or not model_manager.is_ready():
+        return jsonify({"ready": False, "deepface_error": getattr(model_manager, "deepface_error", "no manager")}), 503
+
+    data = request.get_json() or {}
+    img_b64 = data.get('image', '')
+    if not img_b64:
+        # If no image provided, run a synthetic test with a gray 640×480 image
+        rgb = np.full((480, 640, 3), 128, dtype=np.uint8)
+    else:
+        try:
+            rgb = read_image_rgb(img_b64)
+        except Exception as exc:
+            return jsonify({"success": False, "error": f"decode failed: {exc}"}), 400
+
+    emb, strategy = embed_image(rgb)
+    return jsonify({
+        "success": emb is not None,
+        "strategy": strategy,
+        "embedding_shape": list(emb.shape) if emb is not None else None,
+        "embedding_sample": emb[:5].tolist() if emb is not None else None,
+        "image_shape": list(rgb.shape),
+        "image_dtype": str(rgb.dtype),
+    })
 
 @student_registration_bp.route('/api/students/count', methods=['GET'])
 def get_student_count():
