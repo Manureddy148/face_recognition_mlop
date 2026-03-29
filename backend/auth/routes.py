@@ -172,22 +172,17 @@ def api_logout():
 # Additional route to check user type and permissions
 @auth_bp.route('/api/user/profile', methods=['GET'])
 def get_user_profile():
-    """Get current user's profile information"""
+    """Get current user's profile information (single-login model)."""
     user_email = normalize_email(request.headers.get('X-User-Email'))
-    user_type = request.headers.get('X-User-Type', 'student')
     
     if not user_email:
         return jsonify({"success": False, "error": "Authentication required"}), 401
     
     db = current_app.config.get("DB")
-    
-    # Get user from appropriate collection
-    if user_type == 'teacher':
-        auth_col = db.auth_teachers
-    else:
-        auth_col = db.auth_users
-    
-    user = auth_col.find_one({'email': ci_email_query(user_email)}, {'password': 0})  # Exclude password
+    user = db.auth_users.find_one({'email': ci_email_query(user_email)}, {'password': 0})
+    if not user:
+        # Backward compatibility for legacy teacher collection.
+        user = db.auth_teachers.find_one({'email': ci_email_query(user_email)}, {'password': 0})
     
     if not user:
         return jsonify({"success": False, "error": "User not found"}), 404
@@ -202,47 +197,7 @@ def get_user_profile():
 # Route to switch user type (if user has both teacher and student accounts)
 @auth_bp.route('/api/switch-role', methods=['POST'])
 def switch_user_role():
-    """Allow users to switch between teacher and student roles if they have both"""
-    data = request.get_json()
-    user_email = normalize_email(data.get('email'))
-    target_type = data.get('targetType')  # 'teacher' or 'student'
-    
-    if not all([user_email, target_type]):
-        return jsonify({"success": False, "error": "Email and target type required"}), 400
-    
-    db = current_app.config.get("DB")
-    
-    # Check if user exists in target collection
-    if target_type == 'teacher':
-        target_col = db.auth_teachers
-    else:
-        target_col = db.auth_users
-    
-    target_user = target_col.find_one({'email': ci_email_query(user_email)})
-    
-    if not target_user:
-        return jsonify({
-            "success": False, 
-            "error": f"No {target_type} account found for this email"
-        }), 404
-    
-    # Return user info for the target role
-    user_info = {
-        "_id": str(target_user['_id']),
-        "username": target_user['username'],
-        "email": target_user['email'],
-        "userType": target_type
-    }
-    
-    if target_type == 'teacher':
-        user_info.update({
-            "employeeId": target_user.get('employeeId'),
-            "department": target_user.get('department')
-        })
-    
     return jsonify({
-        "success": True,
-        "message": f"Switched to {target_type} role",
-        "user": user_info,
-        "userType": target_type
-    })
+        "success": False,
+        "error": "Role switching is removed in single-login mode"
+    }), 410

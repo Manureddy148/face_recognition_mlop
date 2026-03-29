@@ -174,7 +174,7 @@ export default function DashboardPage() {
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-3 tracking-tight">
-              Student Management Hub
+              Attendance Management Hub
             </h2>
             <p className="text-slate-600 text-lg max-w-2xl mx-auto leading-relaxed">
               Use one place for registration, recognition, attendance sessions, and attendance records.

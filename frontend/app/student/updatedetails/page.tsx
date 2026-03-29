@@ -52,7 +52,7 @@ export default function UpdateStudentDetails() {
   const [updating, setUpdating] = useState(false);
   const [status, setStatus] = useState("");
   const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
-  const [userType, setUserType] = useState<"student" | "teacher">("student");
+  const [userType, setUserType] = useState("user");
   const [userEmail, setUserEmail] = useState("");
 
   // Teacher filter states
@@ -64,11 +64,7 @@ export default function UpdateStudentDetails() {
     search: ""
   });
 
-  // Role-aware dashboard path
-  const dashboardPath = useMemo(
-    () => (userType === "teacher" ? "/teacher/dashboard" : "/dashboard"),
-    [userType]
-  );
+  const dashboardPath = useMemo(() => "/dashboard", []);
 
   const departments = [
     "Computer Science", "Information Technology", "Electronics", 
@@ -83,7 +79,7 @@ export default function UpdateStudentDetails() {
     try {
       const loggedIn = localStorage.getItem("isLoggedIn") === "true";
       const email = localStorage.getItem("userEmail") || "";
-      const utype = (localStorage.getItem("userType") as "student" | "teacher") || "student";
+      const utype = localStorage.getItem("userType") || "user";
       
       setUserType(utype);
       setUserEmail(email);
@@ -102,32 +98,22 @@ export default function UpdateStudentDetails() {
     }
   }, [router]);
 
-  const fetchStudents = async (email: string, type: "student" | "teacher") => {
+  const fetchStudents = async (email: string, type: string) => {
     try {
-      let url = `${apiBase}/api/students`;
-      let headers: Record<string, string> = {
+      const url = `${apiBase}/api/students`;
+      const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        "X-User-Type": type
+        "X-User-Type": "user",
+        "X-User-Email": email,
       };
-
-      if (type === "student") {
-        // For students: only get their own record
-        headers["X-User-Email"] = email;
-      } else {
-        // For teachers: get all students (admin access)
-        url = `${apiBase}/api/admin/students`;
-        headers["X-User-Email"] = email;
-      }
 
       const res = await fetch(url, { headers });
       const data = await res.json();
       
       if (data.success) {
         setStudents(data.students);
-        if (type === "teacher") {
-          setAllStudents(data.students); // Keep original list for filtering
-        }
-        if (data.students.length === 0 && type === "student") {
+        setAllStudents(data.students);
+        if (data.students.length === 0) {
           setStatus("No student record found for your email. Please register first.");
         }
       } else {
@@ -140,9 +126,9 @@ export default function UpdateStudentDetails() {
     }
   };
 
-  // Teacher: Apply filters to student list
+  // Apply filters to student list
   useEffect(() => {
-    if (userType === "teacher" && allStudents.length > 0) {
+    if (allStudents.length > 0) {
       let filtered = allStudents;
 
       if (filters.department) {
@@ -166,7 +152,7 @@ export default function UpdateStudentDetails() {
 
       setStudents(filtered);
     }
-  }, [filters, allStudents, userType]);
+  }, [filters, allStudents]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFilters(prev => ({
@@ -209,16 +195,9 @@ export default function UpdateStudentDetails() {
     try {
       let headers: Record<string, string> = {
         "Content-Type": "application/json",
-        "X-User-Type": userType
+        "X-User-Type": "user",
+        "X-User-Email": userEmail,
       };
-
-      // For students, include their email for authorization
-      if (userType === "student") {
-        headers["X-User-Email"] = userEmail;
-      } else {
-        // For teachers, include teacher email for audit trail
-        headers["X-User-Email"] = userEmail;
-      }
 
       const res = await fetch(`${apiBase}/api/students/${selectedStudent._id}`, {
         method: "PUT",
@@ -239,7 +218,7 @@ export default function UpdateStudentDetails() {
       const data = await res.json();
       
       if (data.success) {
-        setStatus(`✅ ${userType === "teacher" ? "Student" : "Your"} details updated successfully!`);
+        setStatus("✅ Student details updated successfully!");
         fetchStudents(userEmail, userType); // Refresh data
       } else {
         if (res.status === 403) {
@@ -256,9 +235,7 @@ export default function UpdateStudentDetails() {
   };
 
   const handleDelete = async (studentId: string, studentName: string) => {
-    const confirmMessage = userType === "teacher" 
-      ? `Are you sure you want to delete ${studentName}? This action cannot be undone.`
-      : `Are you sure you want to delete your student record (${studentName})? This action cannot be undone.`;
+    const confirmMessage = `Are you sure you want to delete ${studentName}? This action cannot be undone.`;
       
     if (!confirm(confirmMessage)) {
       return;
@@ -270,7 +247,7 @@ export default function UpdateStudentDetails() {
         headers: { 
           "Content-Type": "application/json",
           "X-User-Email": userEmail,
-          "X-User-Type": userType
+          "X-User-Type": "user"
         }
       });
       
@@ -328,13 +305,10 @@ export default function UpdateStudentDetails() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                  {userType === "teacher" ? "Manage Student Details" : "Update Student Details"}
+                  Manage Student Details
                 </h1>
                 <p className="text-gray-600 text-sm">
-                  {userType === "teacher" 
-                    ? "View and update student information" 
-                    : "Update your student information"
-                  }
+                  View and update student information
                 </p>
               </div>
             </div>
@@ -352,8 +326,7 @@ export default function UpdateStudentDetails() {
 
       <main className="p-3 h-[calc(100vh-80px)] overflow-hidden relative z-10">
         <div className="max-w-7xl mx-auto h-full flex flex-col gap-3">
-          {/* Teacher Filters */}
-          {userType === "teacher" && (
+          {/* Filters */}
             <div className="bg-white/70 backdrop-blur-lg rounded-xl p-4 border border-white/20 shadow-lg flex-shrink-0">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -433,14 +406,13 @@ export default function UpdateStudentDetails() {
                 Showing {students.length} of {allStudents.length} students
               </div>
             </div>
-          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 overflow-hidden">
             {/* Student List */}
             <div className="bg-white/70 backdrop-blur-lg rounded-xl p-4 border border-white/20 shadow-lg flex flex-col">
               <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600" />
-                {userType === "teacher" ? "Students" : "Student Record"}
+                Students
               </h3>
               {loading ? (
                 <div className="text-center py-8">
@@ -451,19 +423,14 @@ export default function UpdateStudentDetails() {
                 <div className="text-center py-8">
                   <div className="text-4xl mb-4 text-gray-500">📚</div>
                   <p className="text-gray-600 mb-4">
-                    {userType === "teacher" 
-                      ? "No students found with current filters."
-                      : "No student record found for your email."
-                    }
+                    No students found with current filters.
                   </p>
-                  {userType === "student" && (
-                    <button
-                      onClick={() => router.push("/student/registrationform")}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Register as Student
-                    </button>
-                  )}
+                  <button
+                    onClick={() => router.push("/student/registrationform")}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Register Student
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-2 overflow-y-auto flex-1">
@@ -490,7 +457,7 @@ export default function UpdateStudentDetails() {
                       </div>
                       
                       {/* Delete Button */}
-                      {(userType === "teacher" || (userType === "student" && student.email === userEmail)) && (
+                      {(
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -566,13 +533,7 @@ export default function UpdateStudentDetails() {
                             type="email"
                             value={selectedStudent.email}
                             onChange={handleInputChange}
-                            className={`w-full border rounded-lg pl-10 pr-4 py-2 placeholder-gray-500 focus:outline-none transition-all duration-300 ${
-                              userType === "student" 
-                                ? "bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed" 
-                                : "bg-white/70 border-gray-200 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            }`}
-                            disabled={userType === "student"}
-                            title={userType === "student" ? "Email cannot be changed for security reasons" : ""}
+                            className="w-full border rounded-lg pl-10 pr-4 py-2 placeholder-gray-500 focus:outline-none transition-all duration-300 bg-white/70 border-gray-200 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             required
                           />
                         </div>
