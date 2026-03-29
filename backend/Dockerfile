@@ -18,7 +18,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Pre-download MTCNN and Facenet512 model weights during image build so they
 # never need network access at runtime (critical for Cloud Run containers).
-RUN python -c "import numpy as np; from mtcnn import MTCNN; from deepface import DeepFace; print('Downloading MTCNN...'); MTCNN(); print('Downloading Facenet512...'); DeepFace.represent(np.zeros((160,160,3),dtype='uint8'),model_name='Facenet512',detector_backend='skip',enforce_detection=False); print('All model weights ready')"
+# Use curl (reliable, retries, no partial file on failure) instead of Python urllib.
+RUN mkdir -p /root/.deepface/weights && \
+    curl -fL --retry 5 --retry-delay 10 --retry-max-time 300 --connect-timeout 30 \
+    -o /root/.deepface/weights/facenet512_weights.h5 \
+    "https://github.com/serengil/deepface_models/releases/download/v1.0/facenet512_weights.h5" && \
+    echo "Facenet512 weights size: $(du -sh /root/.deepface/weights/facenet512_weights.h5)"
 
 # Copy application
 COPY . .
