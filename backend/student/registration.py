@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 import io
 import logging
+import traceback
 from pymongo.errors import PyMongoError
 
 student_registration_bp = Blueprint("student_registration", __name__)
@@ -19,7 +20,7 @@ def detect_faces_rgb(rgb_image, detector):
     faces = []
     img_h, img_w = rgb_image.shape[:2]
     for d in detections:
-        if d['confidence'] > 0.85:
+        if d['confidence'] > 0.75:  # lowered from 0.85 to accept more real faces
             x, y, w, h = d['box']
             if w <= 0 or h <= 0:
                 continue
@@ -49,7 +50,7 @@ def extract_embedding(face_rgb):
         )
         return np.array(rep[0]['embedding'], dtype=np.float32)
     except Exception as e:
-        logger.error(f"Embedding error: {e}")
+        logger.error(f"Embedding error: {e}\n{traceback.format_exc()}")
         return None
 
 @student_registration_bp.route('/api/register-student', methods=['POST'])
@@ -84,26 +85,49 @@ def register_student():
 
     # Validate images
     images = data.get('images')
-    if not isinstance(images, list) or len(images) != 5:
-        return jsonify({"success": False, "error": "Exactly 5 images are required"}), 400
+    if not isinstance(images, list) or len(images) < 3:
+        return jsonify({"success": False, "error": "At least 3 images are required"}), 400
 
     embeddings = []
+    skipped = []
     for idx, img_b64 in enumerate(images):
+        # --- decode image ---
         try:
-            if img_b64.startswith("data:"):
-                img_b64 = img_b64.split(",", 1)[1]
-            rgb = read_image_from_bytes(base64.b64decode(img_b64))
-        except Exception:
-            return jsonify({"success": False, "error": f"Invalid image data at index {idx}"}), 400
+            raw = img_b64.split(",", 1)[1] if img_b64.startswith("data:") else img_b64
+            rgb = read_image_from_bytes(base64.b64decode(raw))
+        except Exception as e:
+            logger.warning(f"Image {idx+1}: decode failed ({e}), skipping")
+            skipped.append(idx + 1)
+            continue
 
+        # --- detect face(s) ---
         faces = detect_faces_rgb(rgb, detector)
-        if len(faces) != 1:
-            return jsonify({"success": False, "error": f"Ensure exactly one face in each image (failed at image {idx+1})"}), 400
+        if len(faces) == 0:
+            logger.warning(f"Image {idx+1}: no face detected, skipping")
+            skipped.append(idx + 1)
+            continue
 
-        emb = extract_embedding(faces[0]['face'])
+        # pick highest-confidence face
+        best_face = max(faces, key=lambda f: f['confidence'])
+
+        # --- extract embedding ---
+        emb = extract_embedding(best_face['face'])
         if emb is None:
-            return jsonify({"success": False, "error": f"Failed to extract face features for image {idx+1}"}), 500
+            logger.warning(f"Image {idx+1}: embedding extraction failed, skipping")
+            skipped.append(idx + 1)
+            continue
+
         embeddings.append(emb.tolist())
+
+    if len(embeddings) < 3:
+        return jsonify({
+            "success": False,
+            "error": f"Could not extract face features from enough images ({len(embeddings)}/{len(images)} succeeded). "
+                     "Please ensure good lighting, face fully in frame, and try again."
+        }), 400
+
+    if skipped:
+        logger.info(f"Registration: skipped images {skipped}, accepted {len(embeddings)} embeddings")
 
     student_data = {
         "studentId": data['studentId'],

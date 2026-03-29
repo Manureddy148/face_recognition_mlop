@@ -112,11 +112,19 @@ class ModelManager:
             self.detector = MTCNN()
             logger.info("MTCNN detector loaded successfully")
 
-            # 2. Validate DeepFace import only. Do not warm models at startup,
-            # because weight downloads can fail in cold-start environments.
+            # 2. Import and pre-warm Facenet512 so model weights are downloaded
+            # at startup, not at request time (where a download failure breaks registration).
             from deepface import DeepFace
+            logger.info("Pre-warming Facenet512 model (may download weights on first run)...")
+            _dummy = np.zeros((160, 160, 3), dtype=np.uint8)
+            DeepFace.represent(
+                _dummy,
+                model_name='Facenet512',
+                detector_backend='skip',
+                enforce_detection=False,
+            )
             self.deepface_ready = True
-            logger.info("DeepFace import validation successful")
+            logger.info("Facenet512 model pre-warmed successfully")
 
             self.models_ready = True
 
