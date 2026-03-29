@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { logoutUser } from "@/app/lib/auth";
+import { logoutUser } from "@/app/utils/auth";
 
 export default function Navbar() {
   const router = useRouter();

@@ -11,7 +11,7 @@ import {
   User,
   Play
 } from "lucide-react";
-import { logoutUser } from "@/app/lib/auth";
+import { logoutUser } from "@/app/utils/auth";
 
 export default function DashboardPage() {
   const router = useRouter();
