@@ -74,7 +74,7 @@ export default function SignUpPage() {
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all border-2 border-slate-300 hover:scale-105 transform duration-300 shadow-md hover:shadow-lg"
               >
                 <ArrowLeft className="w-5 h-5" />
-                <span className="font-medium">Back to Home</span>
+                <span className="font-medium">Go Back to Homepage</span>
               </button>
               
               <div className="flex items-center gap-3">
@@ -93,7 +93,7 @@ export default function SignUpPage() {
               className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all border-2 border-slate-300 hover:scale-105 transform duration-300 shadow-md hover:shadow-lg"
             >
               <Home className="w-5 h-5" />
-              <span className="font-medium">Home</span>
+              <span className="font-medium">Homepage</span>
             </button>
           </div>
         </div>
@@ -197,6 +197,15 @@ export default function SignUpPage() {
             {/* Sign In Link */}
             <div className="mt-6 pt-6 border-t border-slate-200 text-center">
               <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-800 transition-colors font-semibold mr-4"
+              >
+                <Home className="w-4 h-4" />
+                Homepage
+              </button>
+              <button
+                type="button"
                 onClick={() => router.push("/signin")}
                 className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-800 transition-colors font-semibold hover:scale-105 transform duration-300"
               >

@@ -86,7 +86,7 @@ export default function DashboardPage() {
       iconBg: "bg-purple-500"
     },
     {
-      title: "Start Face Recognition",
+      title: "Attendance Session",
       description: "Start attendance capture for a selected class and subject",
       icon: <Play className="w-7 h-7" />,
       path: "/teacher/start-session",

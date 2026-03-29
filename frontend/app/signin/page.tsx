@@ -8,7 +8,9 @@ import {
   Lock, 
   Eye,
   EyeOff,
-  UserPlus
+  UserPlus,
+  Home,
+  ArrowLeft
 } from "lucide-react";
 
 export default function SignInPage() {
@@ -88,6 +90,18 @@ export default function SignInPage() {
       </div>
 
       <div className="w-full max-w-md relative z-10">
+        <div className="mb-4 flex justify-center">
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-lg text-slate-700 rounded-xl border-2 border-slate-200 hover:bg-white hover:border-slate-300 transition-all duration-300 shadow-md"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <Home className="w-4 h-4" />
+            Go Back to Homepage
+          </button>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
@@ -182,6 +196,14 @@ export default function SignInPage() {
 
           {/* Sign Up Link */}
           <div className="mt-6 pt-6 border-t border-slate-200 text-center">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-800 transition-colors font-semibold mr-4"
+            >
+              <Home className="w-4 h-4" />
+              Homepage
+            </button>
             <button
               type="button"
               onClick={() => router.push("/signup")}
