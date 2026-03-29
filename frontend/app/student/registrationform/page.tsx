@@ -139,7 +139,10 @@ export default function StudentRegistrationForm() {
         let msg = `❌ ${data.error}`;
         if (data.debug) {
           const d = data.debug;
-          msg += ` | Decode: ${d.decode_failed ?? 0} failed, No-face: ${d.no_face_detected ?? 0}, Embed: ${d.embedding_failed ?? 0} failed, Accepted: ${d.accepted_embeddings ?? 0}/${d.total_images ?? 5}`;
+          msg += ` | Decode: ${d.decode_failed ?? 0} failed, Embed: ${d.embedding_failed ?? 0} failed, Accepted: ${d.accepted_embeddings ?? 0}/${d.total_images ?? 5}`;
+          if (d.errors && d.errors.length > 0) {
+            msg += ` | Details: ${d.errors.join(' / ')}`;
+          }
         }
         setStatus(msg);
       }

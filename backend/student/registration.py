@@ -11,68 +11,91 @@ from pymongo.errors import PyMongoError
 student_registration_bp = Blueprint("student_registration", __name__)
 logger = logging.getLogger(__name__)
 
-def read_image_from_bytes(b):
-    img = Image.open(io.BytesIO(b)).convert('RGB')
+
+def read_image_rgb(img_b64: str) -> np.ndarray:
+    """Decode a base64 image string (with or without data-URI prefix) to an RGB numpy array."""
+    raw = img_b64.split(",", 1)[1] if img_b64.startswith("data:") else img_b64
+    img = Image.open(io.BytesIO(base64.b64decode(raw))).convert('RGB')
     return np.array(img)
 
-def detect_faces_rgb(rgb_image, detector):
-    detections = detector.detect_faces(rgb_image)
-    faces = []
-    img_h, img_w = rgb_image.shape[:2]
-    for d in detections:
-        if d['confidence'] > 0.70:  # permissive threshold — catches rotated/profile poses
-            x, y, w, h = d['box']
-            if w <= 0 or h <= 0:
-                continue
 
-            # Clamp bounding box to image boundaries and skip invalid/empty crops.
-            x1, y1 = max(0, x), max(0, y)
-            x2, y2 = min(img_w, x + w), min(img_h, y + h)
-            crop_w, crop_h = x2 - x1, y2 - y1
-            if crop_w > 30 and crop_h > 30:  # min 30×30 to accept smaller crops
-                face_rgb = rgb_image[y1:y2, x1:x2]
-                if face_rgb.size == 0:
-                    continue
-                faces.append({'box': (x1, y1, crop_w, crop_h), 'face': face_rgb, 'confidence': d['confidence']})
-    return faces
+def embed_image(rgb: np.ndarray) -> tuple:
+    """
+    Return (embedding_array, strategy_name) or (None, error_string).
 
-def _embed_array(img_rgb):
-    """Resize to 160×160 and embed with Facenet512 (detector=skip)."""
+    Tries three strategies in order:
+      1. DeepFace internal MTCNN detection + Facenet512  (enforce_detection=False
+         so it falls back to the full frame when no face found)
+      2. DeepFace skip-detection on full frame  (always produces an embedding)
+      3. PIL resize to 160x160 then DeepFace skip  (explicit pre-resize path)
+    Returns the first strategy that yields a finite 512-d vector.
+    """
     from deepface import DeepFace
-    face_pil = Image.fromarray(img_rgb.astype('uint8')).resize((160, 160))
-    face_array = np.array(face_pil)
-    rep = DeepFace.represent(
-        face_array,
-        model_name='Facenet512',
-        detector_backend='skip',
-        enforce_detection=False,
-    )
-    return np.array(rep[0]['embedding'], dtype=np.float32)
 
-def extract_embedding(face_rgb, full_rgb=None):
-    """Extract Facenet512 embedding from a face crop.
-    Falls back to the full frame when the crop embedding fails."""
+    errors: list[str] = []
+
+    # --- Strategy 1: let DeepFace run MTCNN internally ---
     try:
-        return _embed_array(face_rgb)
-    except Exception as e:
-        logger.warning(f"Crop embedding failed ({e}), trying full-frame fallback")
+        rep = DeepFace.represent(
+            rgb,
+            model_name='Facenet512',
+            detector_backend='mtcnn',
+            enforce_detection=False,
+        )
+        if rep:
+            emb = np.array(rep[0]['embedding'], dtype=np.float32)
+            if emb.shape == (512,) and np.isfinite(emb).all():
+                logger.info("embed_image: strategy=mtcnn succeeded")
+                return emb, 'mtcnn'
+    except Exception as exc:
+        msg = f"mtcnn: {exc}"
+        errors.append(msg)
+        logger.warning(f"embed_image {msg}")
 
-    if full_rgb is not None:
-        try:
-            return _embed_array(full_rgb)
-        except Exception as e:
-            logger.error(f"Full-frame embedding also failed: {e}\n{traceback.format_exc()}")
+    # --- Strategy 2: skip-detection on the full-size decoded array ---
+    try:
+        rep = DeepFace.represent(
+            rgb,
+            model_name='Facenet512',
+            detector_backend='skip',
+            enforce_detection=False,
+        )
+        if rep:
+            emb = np.array(rep[0]['embedding'], dtype=np.float32)
+            if emb.shape == (512,) and np.isfinite(emb).all():
+                logger.info("embed_image: strategy=skip_full succeeded")
+                return emb, 'skip_full'
+    except Exception as exc:
+        msg = f"skip_full: {exc}"
+        errors.append(msg)
+        logger.warning(f"embed_image {msg}")
 
-    return None
+    # --- Strategy 3: PIL pre-resize to 160x160 then skip ---
+    try:
+        arr160 = np.array(Image.fromarray(rgb.astype('uint8')).resize((160, 160)))
+        rep = DeepFace.represent(
+            arr160,
+            model_name='Facenet512',
+            detector_backend='skip',
+            enforce_detection=False,
+        )
+        if rep:
+            emb = np.array(rep[0]['embedding'], dtype=np.float32)
+            if emb.shape == (512,) and np.isfinite(emb).all():
+                logger.info("embed_image: strategy=skip_160 succeeded")
+                return emb, 'skip_160'
+    except Exception as exc:
+        msg = f"skip_160: {exc}"
+        errors.append(msg)
+        logger.warning(f"embed_image {msg}")
 
+    return None, "; ".join(errors) if errors else "unknown error"
 @student_registration_bp.route('/api/register-student', methods=['POST'])
 def register_student():
     data = request.get_json()
     if not data:
         return jsonify({"success": False, "error": "Invalid JSON data"}), 400
 
-    # Get logged-in user info from headers
-    # Simplified: only validate fields and ensure uniqueness of studentId and email
     db = current_app.config.get("DB")
     model_manager = current_app.config.get("MODEL_MANAGER")
     if db is None:
@@ -85,7 +108,6 @@ def register_student():
             "details": deepface_error,
         }), 503
 
-    detector = model_manager.get_detector()
     students_col = db.students
 
     # Check required fields
@@ -108,46 +130,29 @@ def register_student():
     embeddings = []
     skipped = []
     decode_failed = 0
-    no_face_detected = 0
     embedding_failed = 0
+    embed_errors: list[str] = []
+
     for idx, img_b64 in enumerate(images):
-        # --- decode image ---
+        # --- decode ---
         try:
-            raw = img_b64.split(",", 1)[1] if img_b64.startswith("data:") else img_b64
-            rgb = read_image_from_bytes(base64.b64decode(raw))
-        except Exception as e:
-            logger.warning(f"Image {idx+1}: decode failed ({e}), skipping")
+            rgb = read_image_rgb(img_b64)
+        except Exception as exc:
+            logger.warning(f"Image {idx+1}: decode failed: {exc}")
             skipped.append(idx + 1)
             decode_failed += 1
             continue
 
-        # --- detect face(s) ---
-        faces = detect_faces_rgb(rgb, detector)
-        if len(faces) == 0:
-            # Fallback: embed the full frame directly (handles profile poses, small faces)
-            logger.warning(f"Image {idx+1}: no face detected by MTCNN, trying full-frame fallback")
-            emb = extract_embedding(rgb)  # treat whole frame as face
-            if emb is None:
-                logger.warning(f"Image {idx+1}: full-frame fallback also failed, skipping")
-                skipped.append(idx + 1)
-                no_face_detected += 1
-                continue
-            logger.info(f"Image {idx+1}: full-frame fallback succeeded")
-            embeddings.append(emb.tolist())
-            continue
-
-        # pick highest-confidence face
-        best_face = max(faces, key=lambda f: f['confidence'])
-        logger.info(f"Image {idx+1}: face detected conf={best_face['confidence']:.2f} crop={best_face['box'][2]}×{best_face['box'][3]}")
-
-        # --- extract embedding (with full-frame fallback) ---
-        emb = extract_embedding(best_face['face'], full_rgb=rgb)
+        # --- embed (three-strategy cascade) ---
+        emb, strategy = embed_image(rgb)
         if emb is None:
-            logger.warning(f"Image {idx+1}: embedding extraction failed, skipping")
+            logger.warning(f"Image {idx+1}: all embedding strategies failed: {strategy}")
             skipped.append(idx + 1)
             embedding_failed += 1
+            embed_errors.append(f"img{idx+1}: {strategy}")
             continue
 
+        logger.info(f"Image {idx+1}: embedding OK via {strategy}")
         embeddings.append(emb.tolist())
 
     if len(embeddings) < 3:
@@ -157,13 +162,42 @@ def register_student():
                      "Please ensure good lighting, face fully in frame, and try again.",
             "debug": {
                 "decode_failed": decode_failed,
-                "no_face_detected": no_face_detected,
                 "embedding_failed": embedding_failed,
                 "accepted_embeddings": len(embeddings),
                 "total_images": len(images),
+                "errors": embed_errors,
             }
         }), 400
 
+
+@student_registration_bp.route('/api/debug/embed-test', methods=['POST'])
+def debug_embed_test():
+    """Diagnostic: run the full embed pipeline on a single image and return results."""
+    model_manager = current_app.config.get("MODEL_MANAGER")
+    if not model_manager or not model_manager.is_ready():
+        return jsonify({"ready": False, "deepface_error": getattr(model_manager, "deepface_error", "no manager")}), 503
+
+    data = request.get_json() or {}
+    img_b64 = data.get('image', '')
+    if not img_b64:
+        # If no image provided, run a synthetic test with a gray 640×480 image
+        rgb = np.full((480, 640, 3), 128, dtype=np.uint8)
+        img_b64 = None
+    else:
+        try:
+            rgb = read_image_rgb(img_b64)
+        except Exception as exc:
+            return jsonify({"success": False, "error": f"decode failed: {exc}"}), 400
+
+    emb, strategy = embed_image(rgb)
+    return jsonify({
+        "success": emb is not None,
+        "strategy": strategy,
+        "embedding_shape": list(emb.shape) if emb is not None else None,
+        "embedding_sample": emb[:5].tolist() if emb is not None else None,
+        "image_shape": list(rgb.shape),
+        "image_dtype": str(rgb.dtype),
+    })
     if skipped:
         logger.info(f"Registration: skipped images {skipped}, accepted {len(embeddings)} embeddings")
 
