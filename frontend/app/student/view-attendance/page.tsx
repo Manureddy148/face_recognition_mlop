@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, CalendarDays, Download, Filter, RefreshCcw, Search } from "lucide-react";
 // XLSX is dynamically imported in the browser-only export function to avoid
 // bundling issues on the server (e.g. "fs" not found). Do not import at module top-level.
 
@@ -115,214 +116,230 @@ export default function ViewAttendance() {
     }
   };
 
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-orange-50 to-red-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Attendance Records</h1>
-            <p className="text-gray-600">View and manage student attendance data</p>
-          </div>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-          >
-            Back to Dashboard
-          </button>
-        </div>
+  const clearFilters = () => {
+    setSelectedDate("");
+    setFilterDepartment("");
+    setFilterYear("");
+    setFilterDivision("");
+    setFilterSubject("");
+    setFilterStudentId("");
+    setAttendanceData([]);
+    setSearched(false);
+    setStats({
+      totalStudents: 0,
+      presentToday: 0,
+      absentToday: 0,
+      attendanceRate: 0,
+    });
+  };
 
-        {/* Filters */}
-        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-          <div className="flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
+  const formatMarkedAt = (value: string) => {
+    if (!value || value === "-") return "-";
+    const asDate = new Date(value);
+    if (Number.isNaN(asDate.getTime())) return value;
+    return `${asDate.toLocaleDateString()} ${asDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  };
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-cyan-50 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <section className="bg-white/80 backdrop-blur-lg border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">Attendance Records</h1>
+              <p className="text-slate-600 mt-1">Filter by date and subject, review attendance status, and export reports.</p>
+            </div>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 text-white hover:bg-slate-900 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Dashboard
+            </button>
+          </div>
+        </section>
+
+        <section className="bg-white/80 backdrop-blur-lg border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="w-4 h-4 text-indigo-600" />
+            <h2 className="text-lg font-semibold text-slate-800">Filters</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Date</label>
+              <div className="relative">
+                <CalendarDays className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="border border-gray-300 px-3 py-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                <select
-                  value={filterYear}
-                  onChange={(e) => setFilterYear(e.target.value)}
-                  className="border border-gray-300 px-3 py-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All Years</option>
-                  <option value="1st Year">1st Year</option>
-                  <option value="2nd Year">2nd Year</option>
-                  <option value="3rd Year">3rd Year</option>
-                  <option value="4th Year">4th Year</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-                <select
-                  value={filterDivision}
-                  onChange={(e) => setFilterDivision(e.target.value)}
-                  className="border border-gray-300 px-3 py-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All Divisions</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                <input
-                  value={filterSubject}
-                  onChange={(e) => setFilterSubject(e.target.value)}
-                  placeholder="Subject name"
-                  className="border border-gray-300 px-3 py-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
-                <input
-                  value={filterStudentId}
-                  onChange={(e) => setFilterStudentId(e.target.value)}
-                  placeholder="Student Id"
-                  className="border border-gray-300 px-3 py-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                <select
-                  value={filterDepartment}
-                  onChange={(e) => setFilterDepartment(e.target.value)}
-                  className="border border-gray-300 px-3 py-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All Departments</option>
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="IT">IT</option>
-                  <option value="Electronics">Electronics</option>
-                  <option value="Mechanical">Mechanical</option>
-                </select>
               </div>
             </div>
-            <div className="flex gap-4">
-              <button
-                onClick={fetchAttendanceData}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Department</label>
+              <select
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500"
               >
-                🔍 Search
-              </button>
-              <button
-                onClick={exportExcel}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                <option value="">All Departments</option>
+                <option value="Computer Science">Computer Science</option>
+                <option value="IT">IT</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Mechanical">Mechanical</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Year</label>
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500"
               >
-                📑 Export Excel
-              </button>
+                <option value="">All Years</option>
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Division</label>
+              <select
+                value={filterDivision}
+                onChange={(e) => setFilterDivision(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">All Divisions</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Subject</label>
+              <input
+                value={filterSubject}
+                onChange={(e) => setFilterSubject(e.target.value)}
+                placeholder="Subject"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Student ID</label>
+              <input
+                value={filterStudentId}
+                onChange={(e) => setFilterStudentId(e.target.value)}
+                placeholder="Student ID"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
           </div>
-        </div>
 
-        {/* Stats */}
-        {attendanceData.length > 0 && (
-          <div className="grid md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <div className="text-3xl font-bold text-blue-600">{stats.totalStudents}</div>
-              <div className="text-sm text-gray-600">Total Students</div>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <div className="text-3xl font-bold text-green-600">{stats.presentToday}</div>
-              <div className="text-sm text-gray-600">Present Today</div>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <div className="text-3xl font-bold text-red-600">{stats.absentToday}</div>
-              <div className="text-sm text-gray-600">Absent Today</div>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <div className="text-3xl font-bold text-purple-600">{stats.attendanceRate}%</div>
-              <div className="text-sm text-gray-600">Attendance Rate</div>
-            </div>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <button
+              onClick={fetchAttendanceData}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              <Search className="w-4 h-4" />
+              {loading ? "Searching..." : "Search"}
+            </button>
+            <button
+              onClick={exportExcel}
+              disabled={attendanceData.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+            >
+              <Download className="w-4 h-4" />
+              Export Excel
+            </button>
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              Clear
+            </button>
           </div>
-        )}
+        </section>
 
-        {/* Attendance Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800">
-              Attendance {selectedDate ? `for ${new Date(selectedDate).toLocaleDateString()}` : ""}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-4">
+            <p className="text-xs text-slate-500">Total Students</p>
+            <p className="text-2xl font-bold text-slate-800 mt-1">{stats.totalStudents}</p>
+          </div>
+          <div className="bg-white border border-emerald-200 rounded-xl p-4">
+            <p className="text-xs text-emerald-600">Present</p>
+            <p className="text-2xl font-bold text-emerald-700 mt-1">{stats.presentToday}</p>
+          </div>
+          <div className="bg-white border border-rose-200 rounded-xl p-4">
+            <p className="text-xs text-rose-600">Absent</p>
+            <p className="text-2xl font-bold text-rose-700 mt-1">{stats.absentToday}</p>
+          </div>
+          <div className="bg-white border border-indigo-200 rounded-xl p-4">
+            <p className="text-xs text-indigo-600">Attendance Rate</p>
+            <p className="text-2xl font-bold text-indigo-700 mt-1">{stats.attendanceRate}%</p>
+          </div>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-4 border-b border-slate-200 bg-slate-50">
+            <h3 className="text-base font-semibold text-slate-800">
+              {selectedDate
+                ? `Attendance for ${new Date(selectedDate).toLocaleDateString()}`
+                : "Attendance Results"}
             </h3>
           </div>
 
           {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p>Loading attendance data...</p>
-            </div>
+            <div className="p-10 text-center text-slate-600">Loading attendance data...</div>
           ) : !searched ? (
-            <div className="p-8 text-center text-gray-500">
-              Please apply filters and click <b>Search</b> to view attendance records.
-            </div>
+            <div className="p-10 text-center text-slate-500">Apply filters and click Search to load attendance data.</div>
           ) : attendanceData.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              No attendance records found for the selected filters.
-            </div>
+            <div className="p-10 text-center text-slate-500">No attendance records found for selected filters.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
+            <div className="overflow-x-auto max-h-[560px]">
+              <table className="w-full min-w-[980px]">
+                <thead className="bg-slate-100 sticky top-0 z-10">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Student ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Subject
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Confidence
-                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Student ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Subject</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Marked At</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Confidence</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-100">
                   {attendanceData.map((record) => (
-                    <tr key={record._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {record.studentId}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.studentName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(record.date).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.subject}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.time}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                    <tr key={record._id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 text-sm font-medium text-slate-800">{record.studentId}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{record.studentName}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{new Date(record.date).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{record.subject}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{formatMarkedAt(record.time)}</td>
+                      <td className="px-4 py-3">
                         <span
-                          className={`px-2 py-1 text-xs rounded-full ${
+                          className={`inline-flex px-2.5 py-1 text-xs rounded-full font-medium ${
                             record.status === "present"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-rose-100 text-rose-700"
                           }`}
                         >
                           {record.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 text-sm text-slate-700">
                         {record.confidence !== null ? `${record.confidence}%` : "-"}
                       </td>
                     </tr>
@@ -331,7 +348,7 @@ export default function ViewAttendance() {
               </table>
             </div>
           )}
-        </div>
+        </section>
       </div>
     </main>
   );
