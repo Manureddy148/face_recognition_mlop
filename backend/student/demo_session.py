@@ -152,6 +152,8 @@ def demo_recognize_optimized():
 
     data = request.get_json()
     db = current_app.config.get("DB")
+    if db is None:
+        return jsonify({"success": False, "error": "Database unavailable"}), 503
     students_col = db.students
     threshold = float(current_app.config.get("THRESHOLD", "0.6"))
 
@@ -246,6 +248,8 @@ def demo_recognize_optimized():
 def create_demo_session():
     """Create a new demo session"""
     db = current_app.config.get("DB")
+    if db is None:
+        return jsonify({"success": False, "error": "Database unavailable"}), 503
     demo_sessions_col = db.demo_sessions
 
     session_data = {
@@ -267,6 +271,8 @@ def create_demo_session():
 def log_recognition(session_id):
     """Log recognition result to session"""
     db = current_app.config.get("DB")
+    if db is None:
+        return jsonify({"success": False, "error": "Database unavailable"}), 503
     demo_sessions_col = db.demo_sessions
 
     data = request.get_json()

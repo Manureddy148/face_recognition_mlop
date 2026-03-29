@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, useState } from "react";
 
 export interface MultiCameraCaptureProps {
-  onCapture: (images: string[]) => void; // Returns array of 5 captured images
+  onCapture: (images: string[]) => void | Promise<void>; // Returns array of 5 captured images
 }
 
 const directions = ["Front", "Left", "Right", "Up", "Down"];
@@ -17,6 +17,7 @@ const MultiCameraCapture: React.FC<MultiCameraCaptureProps> = ({ onCapture }) =>
   const [cameraError, setCameraError] = useState<string>("");
   const [currentStep, setCurrentStep] = useState(0);
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Start camera
   const startCamera = async () => {
@@ -53,10 +54,19 @@ const MultiCameraCapture: React.FC<MultiCameraCaptureProps> = ({ onCapture }) =>
     return () => stopCamera();
   }, []);
 
-  const captureImage = () => {
+  const captureImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || cameraStatus !== "active") return;
+    if (
+      !video ||
+      !canvas ||
+      cameraStatus !== "active" ||
+      isSubmitting ||
+      currentStep >= directions.length ||
+      video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+    ) {
+      return;
+    }
 
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
@@ -66,12 +76,18 @@ const MultiCameraCapture: React.FC<MultiCameraCaptureProps> = ({ onCapture }) =>
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
 
-    const updatedImages = [...capturedImages, dataUrl];
+    const updatedImages = [...capturedImages, dataUrl].slice(0, directions.length);
     setCapturedImages(updatedImages);
-    setCurrentStep(currentStep + 1);
+    setCurrentStep(updatedImages.length);
 
     if (updatedImages.length === directions.length) {
-      onCapture(updatedImages); // Send all 5 images to parent
+      setIsSubmitting(true);
+      stopCamera();
+      try {
+        await onCapture(updatedImages);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -147,9 +163,10 @@ const MultiCameraCapture: React.FC<MultiCameraCaptureProps> = ({ onCapture }) =>
           </p>
           <button
             onClick={captureImage}
-            className="px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-700"
+            disabled={isSubmitting}
+            className="px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
           >
-            Capture
+            {isSubmitting ? "Processing..." : "Capture"}
           </button>
         </div>
       )}

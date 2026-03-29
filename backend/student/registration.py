@@ -4,31 +4,23 @@ import base64
 import numpy as np
 from PIL import Image
 import io
-from deepface import DeepFace
-from mtcnn import MTCNN
-from pymongo import MongoClient
-from bson.objectid import ObjectId
 import logging
 
 student_registration_bp = Blueprint("student_registration", __name__)
-client = MongoClient("MONGODB_URI")
-db = client["DATABASE_NAME"]
-students_collection = db["students"]
-detector = MTCNN()
 logger = logging.getLogger(__name__)
 
 def read_image_from_bytes(b):
     img = Image.open(io.BytesIO(b)).convert('RGB')
     return np.array(img)
 
-def detect_faces_rgb(rgb_image):
+def detect_faces_rgb(rgb_image, detector):
     detections = detector.detect_faces(rgb_image)
     faces = []
     for d in detections:
-        if d['confidence'] > 0.9:
+        if d['confidence'] > 0.85:
             x, y, w, h = d['box']
             x, y = max(0, x), max(0, y)
-            if w > 50 and h > 50:
+            if w > 40 and h > 40:
                 face_rgb = rgb_image[y:y+h, x:x+w]
                 faces.append({'box': (x, y, w, h), 'face': face_rgb, 'confidence': d['confidence']})
     return faces
@@ -37,10 +29,17 @@ def extract_embedding(face_rgb):
     try:
         face_pil = Image.fromarray(face_rgb.astype('uint8')).resize((160, 160))
         face_array = np.array(face_pil)
-        rep = DeepFace.represent(face_array, model_name='Facenet512', detector_backend='skip')
-        return np.array(rep[0]['embedding'], dtype=float)
+        from deepface import DeepFace
+
+        rep = DeepFace.represent(
+            face_array,
+            model_name='Facenet512',
+            detector_backend='skip',
+            enforce_detection=False,
+        )
+        return np.array(rep[0]['embedding'], dtype=np.float32)
     except Exception as e:
-        print(f"Embedding error: {e}")
+        logger.error(f"Embedding error: {e}")
         return None
 
 @student_registration_bp.route('/api/register-student', methods=['POST'])
@@ -52,6 +51,13 @@ def register_student():
     # Get logged-in user info from headers
     # Simplified: only validate fields and ensure uniqueness of studentId and email
     db = current_app.config.get("DB")
+    model_manager = current_app.config.get("MODEL_MANAGER")
+    if db is None:
+        return jsonify({"success": False, "error": "Database unavailable"}), 503
+    if not model_manager or not model_manager.is_ready():
+        return jsonify({"success": False, "error": "Face models are not ready"}), 503
+
+    detector = model_manager.get_detector()
     students_col = db.students
 
     # Check required fields
@@ -80,7 +86,7 @@ def register_student():
         except Exception:
             return jsonify({"success": False, "error": f"Invalid image data at index {idx}"}), 400
 
-        faces = detect_faces_rgb(rgb)
+        faces = detect_faces_rgb(rgb, detector)
         if len(faces) != 1:
             return jsonify({"success": False, "error": f"Ensure exactly one face in each image (failed at image {idx+1})"}), 400
 

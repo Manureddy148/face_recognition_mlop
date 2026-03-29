@@ -181,6 +181,8 @@ def create_session():
     """Create a new attendance session"""
     data = request.json
     db = current_app.config.get("DB")
+    if db is None:
+        return jsonify({"error": "Database unavailable"}), 503
     students_col = db.students
 
     # Build base session document
@@ -347,13 +349,12 @@ def mark_attendance_with_duplicate_prevention():
         
         logger.info(f"Session {session_id} already has {len(already_present_students)} students marked present")
 
-        # Recognition logic (same as demo session)
+        # Recognition logic uses cached, session-scoped embeddings.
         db = current_app.config.get("DB")
+        if db is None:
+            return jsonify({"error": "Database unavailable"}), 503
         students_col = db.students
         threshold = float(current_app.config.get("THRESHOLD", 0.6))
-        
-        # Search ALL students (same as demo session)
-        students = list(students_col.find({"embeddings": {"$exists": True, "$ne": None}}))
         results = []
 
         for f in faces:
@@ -367,25 +368,14 @@ def mark_attendance_with_duplicate_prevention():
                 })
                 continue
 
-            # EXACT SAME MATCHING LOGIC AS DEMO SESSION
-            best, min_d = None, float("inf")
-            for student in students:
-                stored_embeddings = student.get("embeddings", [])
-                if not stored_embeddings:
-                    continue
-                
-                # Average multiple embeddings
-                if isinstance(stored_embeddings, list) and len(stored_embeddings) > 0:
-                    avg_embedding = np.mean(stored_embeddings, axis=0)
-                else:
-                    avg_embedding = np.array(stored_embeddings)
-                
-                d = cosine(emb, avg_embedding)
-                if d < min_d:
-                    min_d = d
-                    best = student
+            best, min_d = find_best_match_optimized_attendance(
+                emb,
+                students_col,
+                session_doc,
+                threshold,
+            )
 
-            if min_d < threshold and best:
+            if best and min_d < threshold:
                 student_id = best.get("studentId")
                 student_name = best.get("studentName")
 

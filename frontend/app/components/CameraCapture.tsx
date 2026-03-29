@@ -9,7 +9,7 @@ export interface FaceData {
 }
 
 interface CameraCaptureProps {
-  onCapture: (dataUrl: string) => void;
+  onCapture: (dataUrl: string) => void | Promise<void>;
   captureIntervalMs?: number | null;
   singleShot?: boolean;
   isLiveMode?: boolean;
@@ -25,9 +25,21 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const onCaptureRef = useRef(onCapture);
+  const facesDataRef = useRef(facesData);
+  const isCapturingRef = useRef(false);
   const [cameraStatus, setCameraStatus] = useState<"loading" | "active" | "stopped">("stopped");
   const [cameraError, setCameraError] = useState<string>("");
+
+  useEffect(() => {
+    onCaptureRef.current = onCapture;
+  }, [onCapture]);
+
+  useEffect(() => {
+    facesDataRef.current = facesData;
+  }, [facesData]);
 
   const startCamera = async () => {
     try {
@@ -52,38 +64,57 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
     setCameraStatus("stopped");
   };
 
-  const capture = () => {
+  const drawOverlay = () => {
+    const video = videoRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
+    if (!video || !overlayCanvas || cameraStatus !== "active") return;
+
+    overlayCanvas.width = video.videoWidth || 640;
+    overlayCanvas.height = video.videoHeight || 480;
+    const overlayCtx = overlayCanvas.getContext("2d");
+    if (!overlayCtx) return;
+
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+    facesDataRef.current.forEach((face) => {
+      const [x, y, w, h] = face.box;
+      overlayCtx.strokeStyle = face.match ? "lime" : "red";
+      overlayCtx.lineWidth = 2;
+      overlayCtx.strokeRect(x, y, w, h);
+
+      overlayCtx.fillStyle = face.match ? "lime" : "red";
+      overlayCtx.font = "16px Arial";
+      overlayCtx.fillText(
+        face.match ? `${face.match.name} (${face.match.user_id})` : "Unknown",
+        x,
+        Math.max(16, y - 5)
+      );
+    });
+  };
+
+  const capture = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || cameraStatus !== "active") return;
+    if (!video || !canvas || cameraStatus !== "active" || isCapturingRef.current) return;
+
+    isCapturingRef.current = true;
 
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      isCapturingRef.current = false;
+      return;
+    }
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Draw rectangles and IDs
-    facesData.forEach((face) => {
-      const [x, y, w, h] = face.box;
-      ctx.strokeStyle = face.match ? "lime" : "red";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, w, h);
-
-      if (face.match) {
-        ctx.fillStyle = "lime";
-        ctx.font = "16px Arial";
-        ctx.fillText(`${face.match.name} (${face.match.user_id})`, x, y - 5);
-      } else {
-        ctx.fillStyle = "red";
-        ctx.font = "16px Arial";
-        ctx.fillText("Unknown", x, y - 5);
-      }
-    });
-
     const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-    onCapture(dataUrl);
+    try {
+      await onCaptureRef.current(dataUrl);
+    } finally {
+      isCapturingRef.current = false;
+    }
   };
 
   useEffect(() => {
@@ -94,14 +125,20 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (captureIntervalMs && isLiveMode && cameraStatus === "active") {
-      intervalRef.current = setInterval(capture, captureIntervalMs);
+      intervalRef.current = setInterval(() => {
+        void capture();
+      }, captureIntervalMs);
     }
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [captureIntervalMs, isLiveMode, cameraStatus, facesData]);
+  }, [captureIntervalMs, isLiveMode, cameraStatus]);
+
+  useEffect(() => {
+    drawOverlay();
+  }, [facesData, cameraStatus]);
 
   return (
     <div className="relative w-full max-w-md">
@@ -113,7 +150,8 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         className={`rounded-lg shadow-md w-full ${cameraStatus === "active" ? "block" : "hidden"}`}
         style={{ maxHeight: "360px" }}
       />
-      <canvas ref={canvasRef} className="absolute top-0 left-0 rounded-lg w-full" />
+      <canvas ref={overlayCanvasRef} className="absolute top-0 left-0 rounded-lg w-full h-full pointer-events-none" />
+      <canvas ref={canvasRef} className="hidden" />
       {cameraStatus === "stopped" && !cameraError && (
         <button
           onClick={startCamera}
