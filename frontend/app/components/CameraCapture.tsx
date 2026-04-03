@@ -26,6 +26,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const onCaptureRef = useRef(onCapture);
   const facesDataRef = useRef(facesData);
@@ -44,9 +45,17 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   const startCamera = async () => {
     try {
       setCameraStatus("loading");
+      setCameraError("");
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
       });
+      streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraStatus("active");
     } catch (err) {
@@ -57,10 +66,16 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   };
 
   const stopCamera = () => {
-    const stream = videoRef.current?.srcObject as MediaStream;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    const stream = videoRef.current?.srcObject as MediaStream | null;
     stream?.getTracks().forEach((track) => track.stop());
     if (videoRef.current) videoRef.current.srcObject = null;
     if (intervalRef.current) clearInterval(intervalRef.current);
+    isCapturingRef.current = false;
     setCameraStatus("stopped");
   };
 

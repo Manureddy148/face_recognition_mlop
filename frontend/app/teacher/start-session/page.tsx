@@ -108,18 +108,15 @@ export default function DemoSessionPage() {
     setStatus("Starting face recognition for attendance...");
   };
 
-  const handleStopRecognition = () => {
-    setRecognitionStarted(false);
-    setFacesData([]);
-    setStatus("Recognition stopped");
-  };
-
   const handleEndSession = async () => {
     if (!sessionId) {
       setStatus("❌ No active session to end");
       return;
     }
 
+    // Stop camera and recognition immediately when user ends the session.
+    setRecognitionStarted(false);
+    setFacesData([]);
     setStatus("Ending attendance session...");
     try {
       const res = await fetch(`${apiBase}/api/attendance/end_session`, {
@@ -134,7 +131,6 @@ export default function DemoSessionPage() {
         return;
       }
 
-      setRecognitionStarted(false);
       setSessionActive(false);
       setSessionId(null);
       setFacesData([]);
@@ -206,16 +202,6 @@ export default function DemoSessionPage() {
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
             {/* Left Controls */}
             <div className="flex flex-wrap gap-3">
-              {sessionId && recognitionStarted && (
-                <button
-                  onClick={handleStopRecognition}
-                  className="px-6 py-3 rounded-lg font-semibold bg-red-100 hover:bg-red-200 text-red-700 border-2 border-red-300 transition-all duration-300 flex items-center justify-center gap-3 hover:shadow-md hover:-translate-y-0.5"
-                >
-                  <Square className="w-5 h-5" />
-                  Stop Face Recognition
-                </button>
-              )}
-
               {sessionId && (
                 <button
                   onClick={handleEndSession}

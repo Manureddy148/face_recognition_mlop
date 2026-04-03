@@ -29,6 +29,7 @@ This project is a face-recognition-based attendance management system with a mod
 ## Documentation For Sir And Class
 
 - `docs/PROJECT_OVERVIEW.md` - project summary, modules, and workflow
+- `docs/SHORT_LIVE_PROJECT_SNAPSHOT.md` - quick live snapshot with commit/deploy/cloud IDs
 - `docs/DEPLOYMENT_NOTES.md` - deployment architecture and live cloud details
 - `docs/PRESENTATION_NOTES.md` - short explanation script for presentation
 - `docs/CHANGELOG_CLASS.md` - recent changes and important commits

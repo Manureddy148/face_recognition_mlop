@@ -47,6 +47,18 @@ Verified on March 29, 2026:
 - model readiness: true
 - frontend response: HTTP 200
 
+## Release ID Checklist (No Keys)
+
+Use this checklist for each new release so demo and audit details are easy to share.
+
+- GitHub commit ID: fill after commit
+- GitHub PR ID: fill after PR creation (if used)
+- GitHub Actions deploy run ID: fill after workflow starts
+- Deployment execution ID: fill from workflow summary/job output
+- Cloud Run backend revision ID: fill after backend deploy
+- Cloud Run frontend revision ID: fill after frontend deploy
+- Cloud service URLs: confirm backend and frontend URLs
+
 ## What To Say If Asked About Deployment
 
 "The project is not deployed manually every time. We push changes to GitHub main, and GitHub Actions automatically builds and deploys both backend and frontend to Google Cloud Run. After deployment, smoke tests confirm the services are running correctly."

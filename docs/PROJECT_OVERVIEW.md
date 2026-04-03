@@ -70,6 +70,8 @@ Located in `backend/`
 - attendance records UI refinement
 - fixed records lookup issue by using the correct attendance collection
 - explicit end-session behavior to stop recognition correctly
+- removed separate stop-face-recognition menu action in teacher attendance controls
+- ensured camera stream shuts down reliably when attendance session ends
 - auto deployment to GCP through GitHub Actions
 
 ## Why This Project Is Useful

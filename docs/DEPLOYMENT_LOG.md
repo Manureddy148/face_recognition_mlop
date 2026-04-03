@@ -2,6 +2,43 @@
 
 ## Date
 
+April 3, 2026
+
+## Change Summary (Branch Validation)
+
+- Attendance session controls updated in teacher flow.
+- Stop Face Recognition control removed.
+- End Attendance Session retained as the single stop action.
+- Camera stream teardown hardened to stop webcam tracks when ending session.
+
+## IDs Tracking (No Keys)
+
+### GitHub
+
+- Repository: Manureddy148/face_recognition_mlop
+- Working branch: chore/next-changes
+- Base commit before this docs update: 4552cc3
+- New commit ID for this update: PENDING
+- PR ID (if created): PENDING
+- GitHub Actions deploy run ID: PENDING
+
+### Deployment
+
+- Deploy target branch: main
+- Deploy trigger: push to main
+- Deployment execution ID: PENDING
+
+### Cloud
+
+- GCP project ID: project-e553cc0c-7d4a-4519-ade
+- Region: us-central1
+- Backend service: attendance-backend
+- Frontend service: attendance-frontend
+- Backend revision after next deploy: PENDING
+- Frontend revision after next deploy: PENDING
+
+## Date
+
 March 29, 2026
 
 ## Deployment Method
