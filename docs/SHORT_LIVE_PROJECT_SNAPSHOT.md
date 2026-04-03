@@ -25,7 +25,7 @@ April 3, 2026
 - Base branch for production deploys: main
 - Working branch for current update: chore/next-changes
 - Latest local commit before new docs commit: 4552cc3
-- New docs commit ID: PENDING
+- New docs commit ID: 6a751a3
 - GitHub Actions deploy run ID: PENDING
 
 ### Deployment IDs
